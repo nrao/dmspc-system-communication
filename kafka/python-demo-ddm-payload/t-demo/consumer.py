@@ -7,7 +7,7 @@ from PIL import Image
 from confluent_kafka import Consumer
 
 
-topic = "DDM_Payload"   # NOTE The topic which the messages will be received from, rename accordingly to whatever topic you are using
+topic = "demo_topic"   # NOTE The topic which the messages will be received from, rename accordingly to whatever topic you are using
 consumer_group = "gbt-group"  # NOTE rename to whatever consumer group name you want to use
 
 stats_file = "ddm_stats.csv"

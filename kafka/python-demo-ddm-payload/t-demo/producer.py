@@ -4,7 +4,7 @@ import sys
 from confluent_kafka import Producer
 
 
-topic = "DDM_Payload"  # NOTE The topic to which the messages will be sent, rename accordingly to whatever topic you want to send the DDM payloads to.
+topic = "demo_topic"  # NOTE The topic to which the messages will be sent, rename accordingly to whatever topic you want to send the DDM payloads to.
 
 # gets the file path from command line arguments or uses a default
 if len(sys.argv) > 1:
