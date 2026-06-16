@@ -69,9 +69,11 @@ def consume(topic, config):
         with open(filename, 'wb') as file: # writing the received DDM payload to a file in bytes format.
           file.write(value)
 
-        send_time = float(meta.get('message_timestamp')) # extract timestamp from header
+        ts_type,send_time = msg.timestamp()# extract the kafka-assigned timestamp from the message
 
-        latency_ms = (time.time() - send_time)*1000 #calculate latency in ms
+        consumer_time = int(time.time()*1000)#this time was in seconds, now in ms
+        send_time = int(send_time)# this time is in ms
+        latency_ms = (consumer_time - send_time) #calculate latency in ms
 
         print(f"Saved DDM for obs_id '{meta.get('obs_id')}' as {filename} ({len(value)} bytes). Image created at {meta.get('created_timestamp')} by {meta.get('source')}. Latency: {latency_ms:.2f} ms") 
 
