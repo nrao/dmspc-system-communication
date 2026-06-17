@@ -10,6 +10,7 @@ app.config["consumer"] = None
 app.config["messages"]= [] 
 
 
+# Read key=value pairs from a properties file into a dict
 def read_config(filename):
     config  ={ }
     with open(filename) as f :
@@ -21,6 +22,7 @@ def read_config(filename):
 
     return config
 
+# Create and cache a Kafka consumer subscribed to the topic
 def get_consumer():
     if app.config["consumer"] is None: 
         config = read_config("consumer.properties")
@@ -34,11 +36,13 @@ def get_consumer():
 
 
 @app.route("/")
+# Redirect root to producer page
 def index():
     return redirect("/producer")
 
 
 @app.route("/producer")
+# Show the producer form with optional sent/error status
 def producer():
     sent = request.args.get("sent", "")
     error = request.args.get("error", "")
@@ -53,6 +57,7 @@ def producer():
     return render_template("producer.html", status=status)
 
 @app.route("/send", methods = ["POST"])
+# Publish the submitted observation ID to Kafka
 def send():
     obs_id = request.form.get("obs_id", "").strip()
     if not obs_id:
@@ -68,6 +73,7 @@ def send():
 
 
 @app.route("/consumer")
+# Poll Kafka for new messages and display all received so far
 def consumer_page():
     consumer = get_consumer()
     for _ in range(10):
