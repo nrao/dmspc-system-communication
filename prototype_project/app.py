@@ -5,7 +5,7 @@ from confluent_kafka import Producer, Consumer
 
 app = Flask(__name__)
 
-TOPIC = "topic_name"
+TOPIC = "topic_0"
 
 app.config["consumer"] = None
 app.config["messages"]= [] 
