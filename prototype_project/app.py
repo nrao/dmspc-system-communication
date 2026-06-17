@@ -26,10 +26,10 @@ def get_consumer():
     if app.config["consumer"] is None: 
         config = read_config("consumer.properties")
         config["group.id"] = "demo-group"
-        config["auto.offset.reset"] = "lastest"
+        config["auto.offset.reset"] = "latest"
         config["enable.metrics.push"] = False
         app.config["consumer"] = Consumer(config)
-        app.config["consumer"].subcribe([TOPIC])
+        app.config["consumer"].subscribe([TOPIC])
 
     return app.config["consumer"]
 
@@ -50,20 +50,19 @@ def producer():
     error = request.args.get("error", "")
 
     if sent : 
-        status = f"<p>Sent: <strong>{sent}<strong></p>"
+        status = f"<p>Sent: <strong>{sent}</strong></p>"
     elif error:
-        status = f"<p>Error: {error}</p"
+        status = f"<p>Error: {error}</p>"
     else:
         status = ""
 
     return render("producer.html", status=status)
 
-
-@app.route("/send", method = ["POST"])
+@app.route("/send", methods = ["POST"])
 def send():
     obs_id = request.form.get("obs_id", "").strip()
     if not obs_id:
-        return redirect ("/prodiucer?error=Obervation+ID+is+required")
+        return redirect ("/producer?error=Obervation+ID+is+required")
     
     config = read_config("producer.properties")
     config["enable.metrics.push"] = False
@@ -71,7 +70,7 @@ def send():
     producer.produce(TOPIC, key = obs_id, value=obs_id)
     producer.flush()
 
-    return redirect(f"/producer?send={obs_id}")
+    return redirect(f"/producer?sent={obs_id}")
 
 
 @app.route("/consumer")
@@ -89,10 +88,10 @@ def consumer_page():
     else:
         messages = "<p>No messages yet.</p>"
 
-    return render("consumer.html", message = messages)\
+    return render("consumer.html", messages = messages)
     
 
-if __name__ == "main":
+if __name__ == "__main__":
     app.run(debug=True)
     
 
