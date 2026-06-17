@@ -9,7 +9,7 @@
     </nav>
     <hr>
     <h2>Producer</h2>
-    $status 
+    {{ status | safe }}
     <form method = "POST" action = "/send">
         <label>
             Observation ID:

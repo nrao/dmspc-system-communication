@@ -1,5 +1,4 @@
-from string import Template
-from flask import Flask, request, redirect
+from flask import Flask, request, redirect, render_template
 from confluent_kafka import Producer, Consumer
 
 
@@ -34,11 +33,6 @@ def get_consumer():
     return app.config["consumer"]
 
 
-def render(filename, **kwargs):
-    with open(f"templates/{filename}") as f : 
-        return Template(f.read()).substitute(**kwargs)
-    
-
 @app.route("/")
 def index():
     return redirect("/producer")
@@ -49,28 +43,28 @@ def producer():
     sent = request.args.get("sent", "")
     error = request.args.get("error", "")
 
-    if sent : 
-        status = f"<p>Sent: <strong>{sent}</strong></p>"
+    if sent:
+        status = "<p>Sent: <strong>" + sent + "</strong></p>"
     elif error:
-        status = f"<p>Error: {error}</p>"
+        status = "<p>Error: " + error + "</p>"
     else:
         status = ""
 
-    return render("producer.html", status=status)
+    return render_template("producer.html", status=status)
 
 @app.route("/send", methods = ["POST"])
 def send():
     obs_id = request.form.get("obs_id", "").strip()
     if not obs_id:
-        return redirect ("/producer?error=Obervation+ID+is+required")
-    
+        return redirect("/producer?error=Observation+ID+is+required")
+
     config = read_config("producer.properties")
     config["enable.metrics.push"] = False
     producer = Producer(config)
-    producer.produce(TOPIC, key = obs_id, value=obs_id)
+    producer.produce(TOPIC, key=obs_id, value=obs_id)
     producer.flush()
 
-    return redirect(f"/producer?sent={obs_id}")
+    return redirect("/producer?sent=" + obs_id)
 
 
 @app.route("/consumer")
@@ -81,14 +75,13 @@ def consumer_page():
         if msg and not msg.error():
             app.config["messages"].append(msg.value().decode("utf-8"))
 
-
     if app.config["messages"]:
-        items = "".join(f"<li>{m}</li>" for m in app.config["messages"])
-        messages = f"<ul>{items}</ul>"
+        items = "".join("<li>" + m + "</li>" for m in app.config["messages"])
+        messages = "<ul>" + items + "</ul>"
     else:
         messages = "<p>No messages yet.</p>"
 
-    return render("consumer.html", messages = messages)
+    return render_template("consumer.html", messages=messages)
     
 
 if __name__ == "__main__":
