@@ -1,0 +1,25 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}My Django App{% endblock %}</title>
+    <!-- Bootstrap CSS CDN -->
+    <link href="https://jsdelivr.net" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% static 'ngRadar_Website/static/ngRadar_Website/css/style.css' %}">
+</head>
+<body class="bg-light">
+
+    <div class="container mt-5">
+        <!-- Child templates inject content here -->
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Bootstrap JS Bundle CDN -->
+    <script src="https://jsdelivr.net"></script>
+    <!-- Custom JS (Great for front-end Regex validation) -->
+    <script src="{% static 'ngRadar_Website/static/ngRadar_Website/js/script.js' %}"></script>
+</body>
+</html>
