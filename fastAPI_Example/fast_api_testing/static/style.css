@@ -1,0 +1,10 @@
+body {
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* Remove: background-color: ; */
+    color: white;
+    font-size: 120px;
+    font-family: monospace;
+}
