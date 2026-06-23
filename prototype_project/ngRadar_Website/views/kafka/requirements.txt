@@ -1,5 +1,0 @@
-#brew install the following tools for testing and debugging Kafka locally
-curl
-jq
-kcat
-kafka
