@@ -1,0 +1,24 @@
+<!-- templates/registration/login.html -->
+<div class="login-container">
+  <h2>Please Log In</h2>
+  
+  {% if form.errors %}
+    <p style="color: #d9534f;">Invalid username or password. Please try again.</p>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    
+    <div style="margin-bottom: 15px;">
+      {{ form.username.label_tag }}<br>
+      {{ form.username }}
+    </div>
+    
+    <div style="margin-bottom: 15px;">
+      {{ form.password.label_tag }}<br>
+      {{ form.password }}
+    </div>
+
+    <button type="submit" style="padding: 8px 15px;">Sign In</button>
+  </form>
+</div>

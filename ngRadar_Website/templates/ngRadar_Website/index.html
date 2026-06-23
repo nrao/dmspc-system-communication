@@ -1,0 +1,61 @@
+{% extends 'ngRadar_Website/base.html' %} 
+
+{% block title %}ngRadar Website{% endblock %} 
+
+{% block content %}
+
+<body data-color-mode="SDS-light">
+
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="utf-8" />
+<title>System Communication Demo</title>
+<link rel="stylesheet" href="globals.css">
+<link rel="stylesheet" href="styleguide.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="desktop" data-color-mode="SDS-light">
+<header>
+<img class="logogroupcolor" src="/static/ngRadar_Website/images/logo.png" alt="NSF, Associated Universities, Inc., and National Radio Astronomy Observatory logos" />
+<h1 class="text-wrapper-5">System Communication Demo</h1>
+</header>
+<img class="img" src="img/line-1.svg" alt="" aria-hidden="true" />
+<img class="line" src="img/line-2.svg" alt="" aria-hidden="true" />
+<nav aria-label="Primary">
+<button class="button-5" type="button" aria-label="Open Tx Logs">
+<span class="button-2">Tx Logs</span>
+</button>
+<button class="button-4" type="button" aria-label="Open PRDX Files">
+<span class="button-2">PRDX Files</span>
+</button>
+<button class="button-3" type="button" aria-label="Open DDM History">
+<span class="button-2">DDM History</span>
+</button>
+<button class="button" type="button" aria-label="Open CW Plot History">
+<span class="button-2">CW Plot History</span>
+</button>
+</nav>
+<section class="group" aria-label="Current time">
+<h2 class="div">Current Time in UTC:</h2>
+<p class="text-wrapper-4"><time datetime="2026-06-16T17:42">2026-06-16 17:42</time></p>
+</section>
+<section aria-label="Observation details">
+<p class="target-molniya"><span class="text-wrapper">Target: </span><strong class="span">Molniya</strong></p>
+<p class="obs-ID-obs"><span class="text-wrapper">Obs_ID: </span><strong class="span">obs_001</strong></p>
+<p class="text-wrapper-6">TLE:</p>
+<p class="transmitter-ON"><span class="text-wrapper-2">Transmitter: </span><strong class="text-wrapper-3">ON</strong></p>
+<p class="transmitted-waveform"><span class="text-wrapper">Transmitted Waveform: </span><strong class="span">W49 (120 MHz LFM, 2ms PRP)</strong></p>
+<p class="recorded-waveform"><span class="text-wrapper">Recorded Waveform: </span><strong class="span">W49 (120 MHz LFM, 2ms PRP)</strong></p>
+</section>
+<section aria-label="Plots">
+<img class="cw-plot" src="/static/ngRadar_Website/images/cw_plot.jpg" alt="CW plot for the current observation" />
+<img class="molniya" src="/static/ngRadar_Website/images/molniya.png" alt="DDM visualization for target Molniya" /> 
+</section>
+<footer>
+<p class="text-wrapper-7">Developed by Cohort 1</p>
+</footer>
+</main>
+</body>
+</body>
+{% endblock %}

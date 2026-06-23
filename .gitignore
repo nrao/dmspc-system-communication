@@ -1,2 +1,9 @@
 .DS_Store
 *.properties
+ngRadar_Website/.env
+.env
+__pycache__/
+*.pyc
+venv/
+.venv/
+env/

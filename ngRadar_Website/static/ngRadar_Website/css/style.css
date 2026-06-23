@@ -1,0 +1,355 @@
+.desktop {
+  background-color: #ffffff;
+  width: 100%;
+  min-width: 1440px;
+  min-height: 1024px;
+  position: relative;
+}
+
+.desktop .line {
+  top: 155px;
+  left: 220px;
+  width: 1px;
+  height: 869px;
+  position: absolute;
+  object-fit: cover;
+}
+
+.desktop .cw-plot {
+  position: absolute;
+  top: 552px;
+  left: 266px;
+  width: 576px;
+  height: 403px;
+  aspect-ratio: 1.43;
+  object-fit: cover;
+}
+
+.desktop .molniya {
+  position: absolute;
+  top: 552px;
+  left: 882px;
+  width: 503px;
+  height: 404px;
+  aspect-ratio: 1.24;
+}
+
+.desktop .target-molniya {
+  position: absolute;
+  top: 303px;
+  left: 344px;
+  font-family: "Inria Sans-Regular", Helvetica;
+  font-weight: 400;
+  color: #000000;
+  font-size: 24px;
+  letter-spacing: 0;
+  line-height: normal;
+}
+
+.desktop .text-wrapper {
+  font-family: "Inria Sans-Regular", Helvetica;
+  font-weight: 400;
+  color: #000000;
+  font-size: 24px;
+  letter-spacing: 0;
+}
+
+.desktop .span {
+  font-family: "Inria Sans-Bold", Helvetica;
+  font-weight: 700;
+}
+
+.desktop .obs-ID-obs {
+  position: absolute;
+  top: 375px;
+  left: 344px;
+  font-family: "Inria Sans-Regular", Helvetica;
+  font-weight: 400;
+  color: #000000;
+  font-size: 24px;
+  letter-spacing: 0;
+  line-height: normal;
+}
+
+.desktop .transmitted-waveform {
+  position: absolute;
+  top: 375px;
+  left: 819px;
+  font-family: "Inria Sans-Regular", Helvetica;
+  font-weight: 400;
+  color: #000000;
+  font-size: 24px;
+  letter-spacing: 0;
+  line-height: normal;
+}
+
+.desktop .recorded-waveform {
+  position: absolute;
+  top: 447px;
+  left: 819px;
+  font-family: "Inria Sans-Regular", Helvetica;
+  font-weight: 400;
+  color: #000000;
+  font-size: 24px;
+  letter-spacing: 0;
+  line-height: normal;
+}
+
+.desktop .transmitter-ON {
+  position: absolute;
+  top: 296px;
+  left: 819px;
+  font-family: "Inria Sans-Regular", Helvetica;
+  font-weight: 400;
+  color: transparent;
+  font-size: 24px;
+  letter-spacing: 0;
+  line-height: normal;
+}
+
+.desktop .text-wrapper-2 {
+  color: #000000;
+}
+
+.desktop .text-wrapper-3 {
+  font-family: "Inria Sans-Bold", Helvetica;
+  font-weight: 700;
+  color: #18bb2b;
+  font-size: 32px;
+}
+
+.desktop .group {
+  position: absolute;
+  top: 191px;
+  left: 516px;
+  width: 477px;
+  height: 29px;
+  display: flex;
+  gap: 19px;
+}
+
+.desktop .div {
+  width: 239px;
+  height: 29px;
+  font-family: "Inter-Regular", Helvetica;
+  font-weight: 400;
+  color: #000000;
+  font-size: 24px;
+  letter-spacing: 0;
+  line-height: normal;
+}
+
+.desktop .text-wrapper-4 {
+  width: 215px;
+  height: 29px;
+  font-family: "Inter-Bold", Helvetica;
+  font-weight: 700;
+  color: #000000;
+  font-size: 24px;
+  letter-spacing: 0;
+  line-height: normal;
+}
+
+.desktop .button {
+  all: unset;
+  box-sizing: border-box;
+  top: 409px;
+  display: flex;
+  width: 155px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--size-space-200);
+  padding: var(--size-space-300);
+  position: absolute;
+  left: 30px;
+  background-color: var(--color-background-brand-default);
+  border-radius: var(--size-radius-200);
+  overflow: hidden;
+  border: 1px solid;
+  border-color: var(--color-border-brand-default);
+}
+
+.desktop .button-2 {
+  position: relative;
+  width: fit-content;
+  margin-top: -1px;
+  font-family: var(--single-line-body-base-font-family);
+  font-weight: var(--single-line-body-base-font-weight);
+  color: var(--color-text-brand-on-brand);
+  font-size: var(--single-line-body-base-font-size);
+  letter-spacing: var(--single-line-body-base-letter-spacing);
+  line-height: var(--single-line-body-base-line-height);
+  white-space: nowrap;
+  font-style: var(--single-line-body-base-font-style);
+}
+
+.desktop .button-3 {
+  all: unset;
+  box-sizing: border-box;
+  top: 341px;
+  display: flex;
+  width: 155px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--size-space-200);
+  padding: var(--size-space-300);
+  position: absolute;
+  left: 30px;
+  background-color: var(--color-background-brand-default);
+  border-radius: var(--size-radius-200);
+  overflow: hidden;
+  border: 1px solid;
+  border-color: var(--color-border-brand-default);
+}
+
+.desktop .button-4 {
+  all: unset;
+  box-sizing: border-box;
+  top: 273px;
+  display: flex;
+  width: 155px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--size-space-200);
+  padding: var(--size-space-300);
+  position: absolute;
+  left: 30px;
+  background-color: var(--color-background-brand-default);
+  border-radius: var(--size-radius-200);
+  overflow: hidden;
+  border: 1px solid;
+  border-color: var(--color-border-brand-default);
+}
+
+.desktop .button-5 {
+  all: unset;
+  box-sizing: border-box;
+  top: 205px;
+  display: flex;
+  width: 155px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--size-space-200);
+  padding: var(--size-space-300);
+  position: absolute;
+  left: 30px;
+  background-color: var(--color-background-brand-default);
+  border-radius: var(--size-radius-200);
+  overflow: hidden;
+  border: 1px solid;
+  border-color: var(--color-border-brand-default);
+}
+
+.desktop .img {
+  top: 154px;
+  left: 0;
+  width: 1440px;
+  height: 9px;
+  position: absolute;
+  object-fit: cover;
+}
+
+.desktop .logogroupcolor {
+  position: absolute;
+  top: 26px;
+  left: 929px;
+  width: 472px;
+  height: 103px;
+  aspect-ratio: 4.57;
+  object-fit: cover;
+}
+
+.desktop .text-wrapper-5 {
+  position: absolute;
+  top: 57px;
+  left: 59px;
+  font-family: "Inria Sans-Regular", Helvetica;
+  font-weight: 400;
+  color: #000000;
+  font-size: 48px;
+  letter-spacing: 0;
+  line-height: normal;
+}
+
+.desktop .text-wrapper-6 {
+  position: absolute;
+  top: 447px;
+  left: 344px;
+  font-family: "Inria Sans-Regular", Helvetica;
+  font-weight: 400;
+  color: #000000;
+  font-size: 24px;
+  letter-spacing: 0;
+  line-height: normal;
+}
+
+.desktop .text-wrapper-7 {
+  position: absolute;
+  top: 998px;
+  left: 764px;
+  font-family: "Inria Sans-Regular", Helvetica;
+  font-weight: 400;
+  color: #000000;
+  font-size: 15px;
+  letter-spacing: 0;
+  line-height: normal;
+  white-space: nowrap;
+}
+/* Inject the original CSS code above this comment */
+
+.desktop {
+  margin: 0 auto;
+}
+
+.desktop .group {
+  align-items: center;
+}
+
+.desktop .div,
+.desktop .text-wrapper-4,
+.desktop .target-molniya,
+.desktop .obs-ID-obs,
+.desktop .transmitted-waveform,
+.desktop .recorded-waveform,
+.desktop .transmitter-ON,
+.desktop .text-wrapper-6,
+.desktop .text-wrapper-7,
+.desktop .text-wrapper-5 {
+  margin: 0;
+}
+
+.desktop .button,
+.desktop .button-3,
+.desktop .button-4,
+.desktop .button-5 {
+  cursor: pointer;
+}
+
+.desktop .button:hover,
+.desktop .button-3:hover,
+.desktop .button-4:hover,
+.desktop .button-5:hover {
+  background-color: var(--color-background-brand-hover);
+}
+
+.desktop .button:focus-visible,
+.desktop .button-3:focus-visible,
+.desktop .button-4:focus-visible,
+.desktop .button-5:focus-visible {
+  outline-offset: 2px;
+}
+
+.desktop .button-2 {
+  display: inline-block;
+}
+
+.desktop time {
+  font: inherit;
+  color: inherit;
+}
+
+@media (max-width: 1440px) {
+  .desktop {
+    overflow-x: auto;
+  }
+}
