@@ -20,7 +20,7 @@ class Command(BaseCommand):
         # has a better idea for how to handle the image files locally.
 
 
-        self.stdout.write(self.style.SUCCESS("Connected to Kafka cluster! Listening for messages..."))
+    self.stdout.write(self.style.SUCCESS("Connected to Kafka cluster! Listening for messages..."))
 
             # 1. Latency calculation?
             # Should calculate latency here or in the view? Right not the latency graphy logic is in
