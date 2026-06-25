@@ -2,7 +2,7 @@ import time
 import os
 from django.core.management.base import BaseCommand
 from django.conf import settings
-from models import ObservatoryEvent # will need to store parsed data to db
+from ngRadar_Website.models.models import ObservatoryEvent # will need to store parsed data to db
 from enum import Stations # can use enum for stations
 
 """

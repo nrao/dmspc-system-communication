@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from models import ObservatoryEvent
+from ngRadar_Website.models.models import ObservatoryEvent
 from enum import Stations # if needed? if not, pls delete
 
 

@@ -1,5 +1,5 @@
 from django.db import models
-from enums import Stations
+from ngRadar_Website.enums import Stations
 from argon2 import PasswordHasher
 
 ph = PasswordHasher()  # Initialize the PasswordHasher instance
