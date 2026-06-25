@@ -162,8 +162,8 @@ from PIL import Image
 from confluent_kafka import Consumer
 import psycopg2
 
-#Connecting to my database that I initialized in pgAdmin4:
-conn = psycopg2.connect( database="kafka", user='postgres', password='your-pgAdmin 4 password!', host='127.0.0.1', port= '5432')
+#Connecting to the team's render database (fill in password):
+conn = psycopg2.connect( database='postgresql_db_z5im', user='postgresql_db_z5im_user', password='your-pgAdmin 4 password!', host='dpg-d8u415u8bjmc73dbldp0-a.virginia-postgres.render.com', port= '5432')
 cursor = conn.cursor()
 
 topic = "DDM_Payload"   # NOTE The topic which the messages will be received from, rename accordingly to whatever topic you are using
@@ -231,8 +231,9 @@ def consume(topic, config):
 
         print(f"Saved DDM for obs_id '{meta.get('obs_id')}' as {filename} ({len(value)} bytes). Image created at {meta.get('created_timestamp')} by {meta.get('source')}. Latency: {latency_ms:.2f} ms")
 
-        #saves the DDM payload to the database, commits it, and closes the DB connection.
-        cursor.execute("INSERT INTO DDMs (DDM_id, image_data) VALUES (%s, %s)", (meta.get('obs_id'), psycopg2.Binary(value)))
+        #saves the data to the database, commits it, and closes the DB connection
+        #I am still working on filling in the correct column names/values here....
+        cursor.execute("INSERT INTO ngRadar_Website_observatoryevent (DDM_id, image_data) VALUES (%s, %s)", (meta.get('obs_id'), psycopg2.Binary(value)))
         conn.commit()
         conn.close()
 
