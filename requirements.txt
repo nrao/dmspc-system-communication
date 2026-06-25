@@ -1,8 +1,9 @@
 asgiref==3.11.1
-Django
+dj-database-url==3.1.2
+Django==6.0.6
 django-login-required-middleware==0.9.0
-django-unfold
-sqlparse==0.5.5
+django-unfold==0.97.2
+psycopg==3.3.4
+psycopg-binary==3.3.4
 python-dotenv==1.2.2
-Pillow>=9.0.0
-confluent-kafka>=2.4.0
+sqlparse==0.5.5

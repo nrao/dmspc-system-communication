@@ -136,5 +136,8 @@ LOGIN_REQUIRED_IGNORE_PATHS = [
 # For prototype purposes only, to be replaved with cloud object storage later
 # ==============================================================================
 # not sure if the path is correct on these, have not tested
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# URL prefix for user-uploaded media files
 MEDIA_URL = '/media/'
+
+# Absolute path to the directory where media files are stored on disk
+MEDIA_ROOT = BASE_DIR / 'media'
