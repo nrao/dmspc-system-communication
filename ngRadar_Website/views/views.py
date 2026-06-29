@@ -1,10 +1,6 @@
 from django.shortcuts import redirect, render
 from django.contrib.auth.decorators import login_required
 
-#libraries to get files from the outside directory
-import sys
-from pathlib import Path
-
 #libraries used for data streaming
 import json
 from django.http import StreamingHttpResponse, HttpResponse, Http404
@@ -32,11 +28,6 @@ def login_view(request):
     return render(request, 'registration/login.html')
 
 
-#import the producer
-outside_dir = str(Path(__file__).resolve().parents[2])
-sys.path.append(outside_dir)
-
-
 
 def get_dashboard_context():
     """Helper function to keep data uniform across view updates"""
@@ -44,13 +35,32 @@ def get_dashboard_context():
     
     # Calculate the average latency of the last 20 records in Postgres
     avg_latency = latest_events.aggregate(Avg('latency_ms'))['latency_ms__avg'] or 0.0
-
+    #print(avg_latency)
     # Calculate anything else we need for the initial load of the dashboard
     
     return {
         'events': latest_events,
         'avg_latency': round(avg_latency, 2)
     }
+
+
+def get_Message_Latency():
+    last_message_latency = ObservatoryEvent.objects.last().latency_ms
+    last_message_time = ObservatoryEvent.objects.last().event_time
+    print(last_message_latency, last_message_time)
+    data_to_send = {
+        "latency": last_message_latency,
+        "time_sent": last_message_time
+    }
+    yield f"data: {json.dumps(data_to_send)}\n\n"
+
+def latency_graphing(request):
+    response = StreamingHttpResponse(
+        get_Message_Latency(),
+        content_type="text/event-stream; charset=utf-8"
+    )
+    response["Cache-Control"] = "no-cache"
+    return response
 
 @login_required
 def dashboard_view(request):

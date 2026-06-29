@@ -20,7 +20,7 @@
          style="height: 50px; width: auto; object-fit: contain;" />
          
     <h1 class="text-wrapper-5 mb-0 fs-3">System Communication Demo</h1>
-</header>
+    </header>
     
     <main class="flex-grow-1 container-fluid px-4 my-4">
         
@@ -33,8 +33,43 @@
              class="w-100">
             {% include 'ngRadar_Website/partials/dashboard_updates.html' %}
         </div>
-
     </main>
+
+    <body>
+    <title>Live Graph</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <canvas id="LatencyChart"></canvas>
+        <script>
+            const ctx = document.getElementById('LatencyChart').getContext('2d');
+            const myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [], // Time labels
+                    datasets: [{
+                        label: 'Message Latency',
+                        data: [], // Data points
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            const source = new EventSource("{% url 'latency_graphing' %}");
+            source.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                myChart.data.labels.push(data.time_sent);
+                myChart.data.datasets[0].data.push(data.latency);
+                myChart.update();
+            };
+        </script>
+    </body>
 
     <footer class="mt-auto py-3 text-center border-top bg-light">
         <p class="text-wrapper-7 mb-0">Developed by Cohort 1</p>
