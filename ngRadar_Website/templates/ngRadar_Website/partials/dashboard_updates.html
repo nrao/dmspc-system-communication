@@ -23,20 +23,32 @@
                         <td>{{ event.target}}</td>
                         <td>
                             {% if event.xmit_station %}
-                                <span class="text-success fw-bold">{{ event.xmit_station }}</span>
+                                <span class="text-success fw-normal">{{ event.xmit_station }}</span>
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if event.rcvr_station %}
-                                <span class="text-primary fw-bold">{{ event.rcvr_station }}</span>
+                                <span class="text-primary fw-normal">{{ event.rcvr_station }}</span>
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}
                         </td>
-                        <td>{{ event.tx_waveform|default:"-"}}</td>
-                        <td>{{ event.rec_waveform|default:"-"}}</td> 
+                        <td>
+                            {% if event.tx_waveform %}
+                                <span class="text-success fw-bold">{{ event.tx_waveform }}</span>
+                            {% else %}
+                                <span class="text-danger fw-bold">Tx OFF</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if event.rec_waveform %}
+                                <span class="text-success fw-bold">{{ event.rec_waveform }}</span>
+                            {% else %}
+                                <span class="text-danger fw-bold">Tx OFF</span>
+                            {% endif %}
+                        </td>
                         <td>
                             {% if event.image_file %}
                                 <!-- Clicking this link opens the original image in a new browser tab -->
@@ -71,9 +83,9 @@
                 </div>
                 <!-- Dynamic Alert Status Badges -->
                 <div class="mt-2">
-                    {% if avg_latency < 200 %}
+                    {% if avg_latency < 1000 %}
                         <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1">● Pipeline Optimal</span>
-                    {% elif avg_latency < 1000 %}
+                    {% elif avg_latency < 3000 %}
                         <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2.5 py-1">▲ Warning: Heavy Load</span>
                     {% else %}
                         <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1">■ Critical Network Lag</span>
