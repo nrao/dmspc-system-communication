@@ -25,31 +25,31 @@
                             {% if event.xmit_station %}
                                 <span class="text-success fw-bold">{{ event.xmit_station }}</span>
                             {% else %}
-                                <span class="text-muted">Unknown</span>
+                                <span class="text-muted">-</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if event.rcvr_station %}
                                 <span class="text-primary fw-bold">{{ event.rcvr_station }}</span>
                             {% else %}
-                                <span class="text-muted">Unknown</span>
+                                <span class="text-muted">-</span>
                             {% endif %}
                         </td>
-                        <td>{{ event.tx_waveform|default:"Unknown"}}</td>
-                        <td>{{ event.rec_waveform|default:"Unknown"}}</td> 
+                        <td>{{ event.tx_waveform|default:"-"}}</td>
+                        <td>{{ event.rec_waveform|default:"-"}}</td> 
                         <td>
                             {% if event.image_file %}
                                 <!-- Clicking this link opens the original image in a new browser tab -->
-                                <a href="{% url 'serve_image' event.id %}" target="_blank">View {{ event.product_type }}</a>
+                                <a href="{% url 'serve_image' event.id %}" target="_blank">View {{ event.product_type }} image</a>
                             {% else %}
-                                <span class="text-muted">No image uploaded</span>
+                                <span class="text-muted">-</span>
                             {% endif %}
                         </td>
                         <td><small class="text-muted">{{ event.event_time|date:"Y-m-d H:i:s" }}</small></td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="8" class="text-center text-muted">No observation streams found. Active listening...</td>
+                        <td colspan="8" class="text-center text-muted">No current observation in progress. Active listening...</td>
                     </tr>
                     {% endfor %}
                 </tbody>
