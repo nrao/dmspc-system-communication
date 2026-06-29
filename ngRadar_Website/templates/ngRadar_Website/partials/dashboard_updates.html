@@ -23,36 +23,36 @@
                         <td>{{ event.target}}</td>
                         <td>
                             {% if event.xmit_station %}
-                                <span class="text-success fw-normal">{{ event.xmit_station }}</span>
+                                <span class="text-muted">{{ event.xmit_station }}</span>
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if event.rcvr_station %}
-                                <span class="text-primary fw-normal">{{ event.rcvr_station }}</span>
+                                <span class="text-muted">{{ event.rcvr_station }}</span>
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}
                         </td>
                         <td>
-                            {% if event.tx_waveform %}
-                                <span class="text-success fw-bold">{{ event.tx_waveform }}</span>
+                            {% if event.tx_waveform != "Tx_OFF"  %}
+                                <span class="text-success fw-bold">{{ event.tx_waveform|default:"-" }}</span>
                             {% else %}
-                                <span class="text-danger fw-bold">Tx OFF</span>
+                                <span class="text-danger fw-bold">{{ event.tx_waveform|default:"-" }}</span>
                             {% endif %}
                         </td>
                         <td>
-                            {% if event.rec_waveform %}
-                                <span class="text-success fw-bold">{{ event.rec_waveform }}</span>
+                            {% if event.rec_waveform != "Tx_OFF" %}
+                                <span class="text-success fw-bold">{{ event.rec_waveform|default:"-" }}</span>
                             {% else %}
-                                <span class="text-danger fw-bold">Tx OFF</span>
+                                <span class="text-danger fw-bold">{{ event.rec_waveform|default:"-" }}</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if event.image_file %}
                                 <!-- Clicking this link opens the original image in a new browser tab -->
-                                <a href="{% url 'serve_image' event.id %}" target="_blank">View {{ event.product_type }} image</a>
+                                <a href="{% url 'serve_image' event.id %}" target="_blank">View {{ event.product_type }} image ({{event.product_id}})</a>
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}
