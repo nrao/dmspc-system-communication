@@ -48,12 +48,13 @@ services:
     environment:
       # - KAFKA_BOOTSTRAP_SERVERS=kafka:9092 -> idk???
       - DATABASE_URL=${DATABASE_URL}
+      - ENV=${ENV}
     # depends_on:
       # - kafka -> idk???
     ports:
       - "8000:8000"
     volumes:
-      - ./media:/app/media
+     - ${LOCAL_SRC:-/tmp/ignore_render}:/app
 
 
 

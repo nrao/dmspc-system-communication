@@ -14,21 +14,25 @@ from pathlib import Path
 from dotenv import load_dotenv
 import dj_database_url
 
-# BASE_DIR = Path(__file__).resolve().parent
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / '.env')
+env_path = BASE_DIR / '.env'
+if env_path.exists():
+    load_dotenv(env_path)
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
-DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
-# Allow local Docker containers AND Render's domain depending on environment
-# Have not tested this yet
-ALLOWED_HOSTS = [
-    host.strip() 
-    for host in os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
-]
+ENV = os.environ.get('ENV')
 
-# Application definition
+if ENV == 'development':
+    DEBUG = True
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+else:
+    DEBUG = False
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+    RENDER_HOST = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+    if RENDER_HOST:
+        ALLOWED_HOSTS.append(RENDER_HOST)
+
 
 INSTALLED_APPS = [
     # "unfold", # do we need this? what is this?
