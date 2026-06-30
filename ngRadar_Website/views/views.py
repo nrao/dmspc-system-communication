@@ -28,7 +28,6 @@ def login_view(request):
     return render(request, 'registration/login.html')
 
 
-
 def get_dashboard_context():
     """Helper function to keep data uniform across view updates"""
     latest_events = ObservatoryEvent.objects.all().order_by('-event_time')[:20]
@@ -45,6 +44,7 @@ def get_dashboard_context():
 
 
 def get_Message_Latency():
+    print("Streaming message latency data to frontend...")
     last_message_latency = ObservatoryEvent.objects.last().latency_ms
     last_message_time = ObservatoryEvent.objects.last().event_time
     print(last_message_latency, last_message_time)
@@ -71,9 +71,9 @@ def dashboard_view(request):
 
 def event_table_partial(request):
     # this is the partial template view for updating the observatory events table
+    latency_graphing(request)  # Call the function to get the latest message latency
     context = get_dashboard_context()
-
-    return render(request, 'ngRadar_Website/partials/dashboard_updates.html', context)
+    return render(request, 'ngRadar_Website/partials/dashboard_updates.html')
 
 def serve_image(request, event_id):
 
