@@ -1,18 +1,12 @@
 from django.shortcuts import redirect, render
 from django.contrib.auth.decorators import login_required
-
-#libraries to get files from the outside directory
-import sys
-from pathlib import Path
-
-#libraries used for data streaming
-import json
-from django.http import StreamingHttpResponse, HttpResponse, Http404
-
 from ngRadar_Website.models.models import ObservatoryEvent
 from django.contrib import messages
 from django.contrib.auth import authenticate, login
 from django.db.models import Avg
+from django.http import HttpResponse, Http404
+from ngRadar_Website.services.consumer import get_consumer_service
+
 
 def login_view(request):
     if request.method == 'POST':
@@ -32,12 +26,6 @@ def login_view(request):
     return render(request, 'registration/login.html')
 
 
-#import the producer
-outside_dir = str(Path(__file__).resolve().parents[2])
-sys.path.append(outside_dir)
-
-
-
 def get_dashboard_context():
     """Helper function to keep data uniform across view updates"""
     latest_events = ObservatoryEvent.objects.all().order_by('-event_time')[:20]
@@ -45,11 +33,10 @@ def get_dashboard_context():
     # Calculate the average latency of the last 20 records in Postgres
     avg_latency = latest_events.aggregate(Avg('latency_ms'))['latency_ms__avg'] or 0.0
 
-    # Calculate anything else we need for the initial load of the dashboard
-    
     return {
         'events': latest_events,
-        'avg_latency': round(avg_latency, 2)
+        'avg_latency': round(avg_latency, 2),
+        'observation_running': get_consumer_service().running
     }
 
 @login_required
@@ -59,15 +46,17 @@ def dashboard_view(request):
 
     return render(request, 'ngRadar_Website/dashboard.html', context) # pass any other vars to frontend here
 
+
 def event_table_partial(request):
     # this is the partial template view for updating the observatory events table
     context = get_dashboard_context()
 
     return render(request, 'ngRadar_Website/partials/dashboard_updates.html', context)
 
+
 def serve_image(request, event_id):
 
-    # get draw bytes from DB 
+    # get raw bytes from DB 
     raw = ObservatoryEvent.objects.filter(id=event_id).values_list('image_file', flat=True).first()
 
     # if no image found, show 404
@@ -85,4 +74,13 @@ def serve_image(request, event_id):
 #     # how should we handle sending the user inputted payload to the Kafka topic?
 #     return render(request, 'user_input.html') # just an example .html, have not actually created this
 
+def toggle_observation(request):
+    consumer_service = get_consumer_service()
 
+    if request.POST["action"] == "start":
+        consumer_service.start()
+
+    elif request.POST["action"] == "stop":
+        consumer_service.stop()
+
+    return redirect("dashboard_home")

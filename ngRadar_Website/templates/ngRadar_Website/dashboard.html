@@ -19,7 +19,32 @@
          alt="NSF, Associated Universities, Inc., and National Radio Astronomy Observatory logos"
          style="height: 50px; width: auto; object-fit: contain;" />
          
-    <h1 class="text-wrapper-5 mb-0 fs-3">System Communication Demo</h1>
+    <h1 class="text-wrapper-5 mb-0 fs-3">
+        System Communication Demo
+    </h1>
+
+    <div class="ms-auto">
+        <form method="post" action="{% url 'toggle_observation' %}">
+            {% csrf_token %}
+
+            {% if observation_running %}
+                <button type="submit"
+                        name="action"
+                        value="stop"
+                        class="btn btn-danger">
+                    Stop Observation
+                </button>
+            {% else %}
+                <button type="submit"
+                        name="action"
+                        value="start"
+                        class="btn btn-success">
+                    Start Observation
+                </button>
+            {% endif %}
+        </form>
+    </div>
+    
 </header>
     
     <main class="flex-grow-1 container-fluid px-4 my-4">

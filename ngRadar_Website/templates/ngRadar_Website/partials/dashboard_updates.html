@@ -23,14 +23,14 @@
                         <td>{{ event.target}}</td>
                         <td>
                             {% if event.xmit_station %}
-                                <span class="text-success fw-bold">{{ event.xmit_station }}</span>
+                                <span class="text-success fw-bold">{{ event.get_xmit_station_display }}</span>
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if event.rcvr_station %}
-                                <span class="text-primary fw-bold">{{ event.rcvr_station }}</span>
+                                <span class="text-primary fw-bold">{{ event.get_rcvr_station_display }}</span>
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}
