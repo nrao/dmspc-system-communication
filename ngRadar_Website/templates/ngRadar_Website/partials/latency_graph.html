@@ -1,0 +1,35 @@
+    <div class="Live_Latency_Graph">
+    <title>Live Graph</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <canvas id="LatencyChart"></canvas>
+        <script>
+            const ctx = document.getElementById('LatencyChart').getContext('2d');
+            const myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [], // Time labels
+                    datasets: [{
+                        label: 'Message Latency',
+                        data: [], // Data points
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            const source = new EventSource("{% url 'latency_graphing' %}");
+            source.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                myChart.data.labels.push(data.time_sent);
+                myChart.data.datasets[0].data.push(data.latency);
+                myChart.update();
+            };
+        </script>
+    </div>
