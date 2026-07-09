@@ -17,47 +17,47 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for event in events %}
+                    {% for latest_event in latest_events %}
                     <tr>
-                        <td>{{ event.object_id}}</td>
-                        <td>{{ event.target}}</td>
+                        <td>{{ latest_event.object_id}}</td>
+                        <td>{{ latest_event.target}}</td>
                         <td>
-                            {% if event.xmit_station %}
-                                <span class="text-muted">{{ event.xmit_station }}</span>
+                            {% if latest_event.xmit_station %}
+                                <span class="text-muted">{{ latest_event.xmit_station }}</span>
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}
                         </td>
                         <td>
-                            {% if event.rcvr_station %}
-                                <span class="text-muted">{{ event.rcvr_station }}</span>
+                            {% if latest_event.rcvr_station %}
+                                <span class="text-muted">{{ latest_event.rcvr_station }}</span>
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}
                         </td>
                         <td>
-                            {% if event.tx_waveform != "Tx_OFF"  %}
-                                <span class="text-success fw-bold">{{ event.tx_waveform|default:"-" }}</span>
+                            {% if latest_event.tx_waveform != "Tx_OFF"  %}
+                                <span class="text-success fw-bold">{{ latest_event.tx_waveform|default:"-" }}</span>
                             {% else %}
-                                <span class="text-danger fw-bold">{{ event.tx_waveform|default:"-" }}</span>
+                                <span class="text-danger fw-bold">{{ latest_event.tx_waveform|default:"-" }}</span>
                             {% endif %}
                         </td>
                         <td>
-                            {% if event.rec_waveform != "Tx_OFF" %}
-                                <span class="text-success fw-bold">{{ event.rec_waveform|default:"-" }}</span>
+                            {% if latest_event.rec_waveform != "Tx_OFF" %}
+                                <span class="text-success fw-bold">{{ latest_event.rec_waveform|default:"-" }}</span>
                             {% else %}
-                                <span class="text-danger fw-bold">{{ event.rec_waveform|default:"-" }}</span>
+                                <span class="text-danger fw-bold">{{ latest_event.rec_waveform|default:"-" }}</span>
                             {% endif %}
                         </td>
                         <td>
-                            {% if event.image_file %}
+                            {% if latest_event.image_url %}
                                 <!-- Clicking this link opens the original image in a new browser tab -->
-                                <a href="{% url 'serve_image' event.id %}" target="_blank">View {{ event.product_type }} image ({{event.product_id}})</a>
+                                <a href="{% url 'serve_image' latest_event.uuid %}" target="_blank">View {{ latest_event.product_type }} image ({{ latest_event.product_id }})</a>
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}
                         </td>
-                        <td><small class="text-muted">{{ event.event_time|date:"Y-m-d H:i:s" }}</small></td>
+                        <td><small class="text-muted">{{ latest_event.event_time|date:"Y-m-d H:i:s" }}</small></td>
                     </tr>
                     {% empty %}
                     <tr>

@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 
 def main():
-    BASE_DIR = Path(__file__).resolve().parent
+    BASE_DIR = Path(__file__).resolve().parent.parent
     load_dotenv(BASE_DIR / '.env')
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'settings')
     try:

@@ -15,4 +15,6 @@ confluent-kafka==2.8.0
 gunicorn
 whitenoise
 matplotlib
+boto3
+botocore
 numpy

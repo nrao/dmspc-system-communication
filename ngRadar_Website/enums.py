@@ -12,3 +12,4 @@ class Stations(models.IntegerChoices):
     OV  = 97, "Owens Valley (25-m, VLBA)"
     BR  = 98, "Brewster (25-m, VLBA)"
     MK  = 99, "Mauna Kea (25-m, VLBA)"
+    DSOC = 100, "DSOC (Domenici Socorro Operations Center)"

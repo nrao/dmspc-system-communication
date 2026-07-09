@@ -21,6 +21,7 @@ This code will:
 
 load_dotenv()  # loads .env from current working dir
 
+
 config = {
     "bootstrap.servers": os.environ["BOOTSTRAP_SERVER"],
     "fetch.max.bytes": 8388608,
@@ -48,6 +49,7 @@ def latency_calc(event_time):
 '''
 
 
+
 def DB_import(uuid):
     
   gbt_data = gbtEvent.objects.filter(uuid=uuid).values_list('uuid', 'target', 'tx_waveform', 'event_time', 'latency_ms').first()
@@ -55,21 +57,6 @@ def DB_import(uuid):
   return gbt_data
 
 
-''' Previous DB_columns function, before implementing dictionary:
-
-def DB_columns():
-  #defines the column values specific to DSOC/images
-
-    product_type = "DDM"
-    product_id = f"DDM{random.randint(1000,9999)}"
-    station = random.choice([9, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99])
-    created_at = datetime.now() - timedelta(seconds=10)
-    xmit_station = "GBT"
-    rcvr_station = station
-
-    return product_type, product_id, station,created_at, xmit_station, rcvr_station
-
-'''
 
 
 def DB_columns():
@@ -89,53 +76,18 @@ def DB_columns():
     return data
 
 
-''' Previous publish_DB function for a direct DB connection:
-
-def publish_DB(uuid, product_type, product_id, station, created_at, xmit_station, rcvr_station, image_file, num_bytes):
-  #saves the DDM payload to the database and commits it 
-  cursor.execute("""
-                 INSERT INTO \"ngRadar_Website_dsocEvent\" (
-                 uuid,
-                 product_type, 
-                 product_id, 
-                 station, 
-                 created_at, 
-                 xmit_station, 
-                 rcvr_station,
-                 image_file, 
-                 num_bytes)
-                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                 """, (
-                   uuid,
-                   product_type, 
-                   product_id, 
-                   station, 
-                   created_at, 
-                   xmit_station, 
-                   rcvr_station, 
-                   image_file, 
-                   num_bytes))
-  conn.commit()
-  #conn.close()
-
-  return print("DDM payload saved to database successfully.")
-
-'''
-
-
-def publish_DB(uuid, image_file, num_bytes, data):
-  #saves the DDM payload to the database
+def publish_DB(image_key, num_bytes, data):
+  #saves the image path to the database
   data.update({
-      "uuid": uuid,
-      "image_file": image_file,
+      "image_key": image_key,
       "num_bytes": num_bytes
   })
 
   try:
+          close_old_connections()
           # close_old_connections()
 
           dsocEvent.objects.create(**data)
-
           msg = "Payload saved to database successfully."
 
   except Exception as e:
@@ -173,6 +125,33 @@ def create_img(tx_waveform):
 
     return image_file, num_bytes
 
+def save_image_to_seaweedfs(target, image_file, uuid):
+    # Save the image to SeaweedFS using S3 API
+    import boto3
+    from botocore.exceptions import NoCredentialsError
+
+    s3 = boto3.client(
+        's3',
+        endpoint_url=os.environ.get('WEED_S3_DOMAIN'),
+        aws_access_key_id=os.environ.get('WEED_S3_ACCESS_KEY'),
+        aws_secret_access_key=os.environ.get('WEED_S3_SECRET_KEY')
+    )
+
+    image_key = f"ddm/{target}/{uuid}.png"
+
+    try:
+        s3.put_object(Bucket=os.environ.get('WEED_S3_BUCKET'), Key=image_key, Body=image_file)
+        print(f"Image saved to SeaweedFS at {image_key}")
+        image_url = (
+            f"{os.environ['WEED_S3_DOMAIN']}/"
+            f"{os.environ['WEED_S3_BUCKET']}/"
+            f"{image_key}"
+        )
+    except NoCredentialsError:
+        print("Credentials not available for SeaweedFS S3.")
+    
+    return image_key
+
 
 def consume(topic, config):
   #creates a new consumer instance
@@ -204,9 +183,11 @@ def consume(topic, config):
         uuid, target, tx_waveform, event_time, latency_ms = gbt_data
         image_file, num_bytes = create_img(tx_waveform)
 
-        publish_DB(uuid, image_file, num_bytes, data)
+        image_key = save_image_to_seaweedfs(gbt_data.target, image_file, dsocEvent.uuid)
 
-        print(f"Received message from {data['station']}; DDM is ready (Image ID: {data['product_id']}).")
+        publish_DB(image_key, num_bytes, data)
+
+        print(f"Received message from {data.station}; DDM is ready in SeaweedFS (Image Path: {data.image_key}).")
 
         ''' Previous code using old functions:
         #create the rest of the column values specific to DSOC/images:

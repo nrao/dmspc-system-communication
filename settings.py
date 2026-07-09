@@ -123,16 +123,16 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [
-    BASE_DIR / 'ngRadar_Website' / 'static',
-]
+# STATICFILES_DIRS = [
+#     BASE_DIR / 'ngRadar_Website' / 'static',
+# ]
 
 
 # Authentication
 # https://docs.djangoproject.com/en/6.0/topics/auth/default/
 
 LOGIN_URL = 'login'            # name of the login route in urls.py
-LOGIN_REDIRECT_URL = 'index'    # after login -> /ngRadar_Website/index.html
+LOGIN_REDIRECT_URL = 'home'    # after login -> /ngRadar_Website/home.html
 LOGOUT_REDIRECT_URL = 'login'  # after logout -> back to the login page
 
 # Let everyone see the login page; LoginRequiredMiddleware guards every other page.
