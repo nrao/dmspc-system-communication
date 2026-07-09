@@ -25,7 +25,6 @@ load_dotenv(override=True)
 #program constants
 DATE_TIME_STRING=19
 
-@cache_control(no_cache=True, must_revalidate=True, no_store=True) #Desmond's Auth token fix - comment if we decide not to use
 def login_view(request):
     if request.method == 'POST':
         username_input = request.POST['username']
