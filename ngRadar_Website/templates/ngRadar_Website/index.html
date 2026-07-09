@@ -5,7 +5,7 @@
 {% block content %}
 
 <div>
-<header class="text-center"><strong style="font-weight: 700 !important;">Current Time in UTC:</strong> <span id="live-clock"></span></header>
+<header class="text-center fs-5"><strong style="font-weight: 700 !important;">Current Time in UTC:</strong> <span id="live-clock"></span></header>
   <script>
           function getTime() {
               const now = new Date();
@@ -30,9 +30,10 @@
           getTime();
           setInterval(getTime, 1000);
       </script>
-      <h4 class="mt-5 border rounded pt-3 pb-3 bg-white fw-bold ps-3 pe-3"
-        style="margin-left: 0.8rem; margin-right: 0.8rem;">
-        Latest Observation Data:
+  
+      <h4 class="mt-4 border rounded pt-3 pb-3 bg-white fw-bold ps-3 pe-3 text-center mx-auto"
+        style="max-width: 30rem;">
+        Live status here
       </h4>
 
 

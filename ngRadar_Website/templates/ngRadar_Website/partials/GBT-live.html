@@ -2,19 +2,19 @@
   <div class="row g-4">
     <!-- Left column -->
     <div class="col-12 col-md-6">
-      <div class="border rounded p-3 bg-white">
-        <h5 class="mb-2">Target:</h5>
-        <p class="mb-0"> {{ latest_event.target }} </p>
+      <div class="border rounded p-3 bg-white d-flex align-items-center" style="min-height: 5rem;">
+        <h5 class="fw-bold me-3">Target: </h5>
+        <p class="fs-5"> {{ latest_event.target }} </p>
       </div>
 
-      <div class="border rounded p-3 bg-white mt-4">
-        <h5 class="mb-2">Object ID:</h5>
-        <p class="mb-0"> {{ latest_event.object_id }} </p>
+      <div class="border rounded p-3 bg-white mt-4 d-flex align-items-center" style="min-height: 5rem;">
+        <h5 class="fw-bold me-3">Object ID:</h5>
+        <p class="fs-5"> {{ latest_event.object_id }} </p>
       </div>
       
-      <div class="border rounded p-3 bg-white mt-4">
-        <h5 class="mb-2">Message Time (UTC):</h5>
-        <p class="mb-0"> {{ latest_event.event_time|date:"F d Y H:i:s" }} </p>
+      <div class="border rounded p-3 bg-white mt-4 d-flex align-items-center" style="min-height: 5rem;">
+        <h5 class="fw-bold me-3">Message Time (UTC):</h5>
+        <p class="fs-5"> {{ latest_event.event_time|date:"F d Y H:i:s" }} </p>
       </div>
 
       <!-- add more rows as needed -->
@@ -22,11 +22,13 @@
 
     <!-- Right column -->
     <div class="col-12 col-md-6">
-      <div class="border rounded p-3 bg-white">
-        <h5 class="mb-2">Input new waveform:</h5>
-        <form action="{% url 'submit_waveform' %}" method="POST">
+      <div class="border rounded p-3 bg-white d-flex align-items-center" style="min-height: 5rem;">
+        <form action="{% url 'submit_waveform' %}" method="POST" class="d-flex align-items-center gap-2">
           {% csrf_token %}
-          <select name="waveform" class="form-select mb-2">
+          <label class="mb-0 fw-bold" for="waveform" style="white-space:nowrap;">
+            Input waveform here:  
+          </label>
+          <select name="waveform" class="form-select">
             <option value="W45">W45</option>
             <option value="W46">W46</option>
             <option value="W47">W47</option>
@@ -39,18 +41,18 @@
             <option value="W54">W54</option>
             <option value="W55">W55</option>
           </select>
-          <button type="submit" class="btn btn-primary">Submit Waveform</button>
+          <button type="submit" class="btn btn-primary">Submit</button>
         </form>
       </div>
 
-      <div class="border rounded p-3 bg-white mt-4">
-        <h5 class="mb-2">Transmitted Waveform:</h5>
-        <p class="mb-0">{{ latest_event.tx_waveform }}</p>
+      <div class="border rounded p-3 bg-white mt-4 d-flex align-items-center" style="min-height: 5rem;">
+        <h5 class="fw-bold me-3">Transmitted Waveform:</h5>
+        <p class="fs-5">{{ latest_event.tx_waveform }}</p>
       </div>
 
-      <div class="border rounded p-3 bg-white mt-4">
-        <h5 class="mb-2">Recorded Waveform:</h5>
-        <p class="mb-0"> {{ latest_event.rec_waveform }} </p>
+      <div class="border rounded p-3 bg-white mt-4 d-flex align-items-center" style="min-height: 5rem;">
+        <h5 class="fw-bold me-3">Recorded Waveform:</h5>
+        <p class="fs-5"> {{ latest_event.rec_waveform }} </p>
       </div>
 
       <!-- add more rows as needed -->
