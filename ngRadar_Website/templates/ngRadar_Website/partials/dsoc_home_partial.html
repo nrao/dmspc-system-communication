@@ -1,12 +1,13 @@
 <div class="mt-4 border rounded pt-3 pb-3 bg-white ps-3 pe-3 text-center mx-auto"
 style="max-width: 50rem;">
+    {% if dsoc_event %}
         <h5 class="fw-bold">DDM last updated at {{ dsoc_event.event_time|date:"F d Y H:i:s" }}</h5>
-          {% if dsoc_event %}
-                  <img
-                      src="{% url 'serve_image' dsoc_event.uuid %}"
-                      class="img-fluid mx-auto d-block"
-                      alt="Latest DDM">
-              {% else %}
-                  <p class="text-muted">No image available</p>
-              {% endif %}
+            <img
+                src="{% url 'serve_image' dsoc_event.uuid %}"
+                class="img-fluid mx-auto d-block mt-3"
+                alt="Latest DDM">
+    {% else %}
+        <h5 class="fw-bold">Waiting for DDM to be created...</h5>
+        <p class="text-muted mt-3">No image available yet</p>
+    {% endif %}
 </div>
