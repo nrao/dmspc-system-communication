@@ -31,16 +31,15 @@
           setInterval(getTime, 1000);
       </script>
   
-      <h4 class="mt-4 border rounded pt-3 pb-3 bg-white fw-bold ps-3 pe-3 text-center mx-auto"
-        style="max-width: 30rem;">
-        Live status here
-      </h4>
-
-
+  <h4 class="mt-4 border rounded pt-3 pb-3 bg-white ps-3 pe-3 text-center mx-auto" style="max-width: 30rem;">
+    {% if gbt_event.tx_waveform is not None %}
+        <span> ✅ All systems online. Observation in progress.</span>
+    {% else %}
+        <span> ⏳ Changing waveform...</span>
+    {% endif %}
+  </h4>
 
 </div>
-
-
 
 
 {% include 'ngRadar_Website/partials/gbt_home_partial.html' %}
