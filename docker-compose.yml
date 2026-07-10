@@ -71,7 +71,7 @@ services:
     env_file:
       - .env
     environment:
-      NGROK_AUTHTOKEN: ${NGROK_AUTH_TOKEN}
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
     command: tcp broker:9092 --log stdout
     ports:
       - "4040:4040"
