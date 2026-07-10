@@ -7,7 +7,7 @@ urlpatterns = [
     path('home/', views.home_view, name='home'),
     path('home/', views.gbt_event_partial, name='gbt_events'),
     path('home/', views.dsoc_event_partial, name='dsoc_events'),
-    path('home/', views.submit_waveform, name='submit_waveform'),
+    path('submit-waveform/', views.submit_waveform, name='submit_waveform'),
 
     # Dashboard page URLs
     path('dashboard/', views.dashboard_view, name='dashboard_home'),
