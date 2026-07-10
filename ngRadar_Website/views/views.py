@@ -97,7 +97,6 @@ def serve_image(request, event_id):
         content_type=response["ContentType"],
     )
 
-
     
 
 # Need a function AND another partial template for handling the user inputted payload

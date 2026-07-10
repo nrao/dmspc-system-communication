@@ -1,6 +1,6 @@
 <div class="mt-4 border rounded pt-3 pb-3 bg-white ps-3 pe-3 text-center mx-auto"
 style="max-width: 50rem;">
-        <h5 class="fw-bold">Latest DDM:</h5>
+        <h5 class="fw-bold">DDM last updated at {{ dsoc_event.event_time|date:"F d Y H:i:s" }}</h5>
           {% if dsoc_event %}
                   <img
                       src="{% url 'serve_image' dsoc_event.uuid %}"
