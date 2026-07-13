@@ -26,17 +26,16 @@
     </script>
 </div>
   
+
 <!-- Row 2: Obs Status & Input Waveform -->
 <div class="row justify-content-center g-3 mb-4">
     <!-- Obs Status -->
-    <div class="col-12 col-md-6 col-lg-5">
-        <div class="border rounded p-3 bg-white d-flex align-items-center" style="min-height: 5rem;">
-            {% if gbt_event.tx_waveform is not None %}
-                <span> ✅ All systems online. Observation in progress.</span>
-            {% else %}
-                <span> ⏳ Changing waveform...</span>
-            {% endif %}
-        </div>
+    <div id="home-status-partial" 
+        hx-get="{% url 'status' %}" 
+        hx-trigger="every 1s" 
+        hx-target="#home-status-partial"
+        class="col-12 col-md-6 col-lg-5">
+        {% include 'ngRadar_Website/partials/status_partial.html' %}
     </div>
       
     <!-- Input Waveform -->
@@ -48,17 +47,17 @@
                     Input waveform here:  
                 </label>
                 <select name="waveform" class="form-select">
-                    <option value="W45">W45</option>
-                    <option value="W46">W46</option>
-                    <option value="W47">W47</option>
-                    <option value="W48">W48</option>
-                    <option value="W49">W49</option>
-                    <option value="W50">W50</option>
-                    <option value="W51">W51</option>
-                    <option value="W52">W52</option>
-                    <option value="W53">W53</option>
-                    <option value="W54">W54</option>
-                    <option value="W55">W55</option>
+                    <option value="W45" {% if current_waveform == "W45" %}selected{% endif %}>W45</option>
+                    <option value="W46" {% if current_waveform == "W46" %}selected{% endif %}>W46</option>
+                    <option value="W47" {% if current_waveform == "W47" %}selected{% endif %}>W47</option>
+                    <option value="W48" {% if current_waveform == "W48" %}selected{% endif %}>W48</option>
+                    <option value="W49" {% if current_waveform == "W49" %}selected{% endif %}>W49</option>
+                    <option value="W50" {% if current_waveform == "W50" %}selected{% endif %}>W50</option>
+                    <option value="W51" {% if current_waveform == "W51" %}selected{% endif %}>W51</option>
+                    <option value="W52" {% if current_waveform == "W52" %}selected{% endif %}>W52</option>
+                    <option value="W53" {% if current_waveform == "W53" %}selected{% endif %}>W53</option>
+                    <option value="W54" {% if current_waveform == "W54" %}selected{% endif %}>W54</option>
+                    <option value="W55" {% if current_waveform == "W55" %}selected{% endif %}>W55</option>
                 </select>
                 <button type="submit" class="btn btn-primary">Submit</button>
             </form>

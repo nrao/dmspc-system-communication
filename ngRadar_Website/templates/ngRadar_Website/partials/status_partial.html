@@ -1,0 +1,8 @@
+
+<div class="border rounded p-3 bg-white d-flex align-items-center" style="min-height: 5rem; display: flex; justify-content: center; align-items: center; font-size: 1.2rem">
+    {% if gbt_event.tx_waveform == 'Tx_OFF' %}
+        <span> ⏳ Changing waveform to {{ ui_event.selected_waveform }}... </span>
+    {% else %}
+        <span> ✅ All systems online. Observation in progress. </span>
+    {% endif %}
+</div>

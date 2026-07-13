@@ -147,6 +147,32 @@ services:
     networks:
       - ngradar_website_network
 
+  ngrok-writer:
+    build: .
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - broker
+    volumes:
+      - .:/service
+      - ngrok_env:/out
+    networks:
+      - ngradar_website_network
+    profiles: ["kafka"]
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        rm -f /out/ngrok_endpoint.env
+        echo "Finding ngrok endpoint..."
+        while [ ! -f /out/ngrok_endpoint.env ]; do sleep 2; done
+        while [ ! -s /out/ngrok_endpoint.env ]; do sleep 1; done
+        echo "----- Using ngrok endpoint: -----"
+        cat /out/ngrok_endpoint.env
+        echo "------------------------------------"
+        python manage.py ngrok_writer
+
 
   gbt:
     build: .
