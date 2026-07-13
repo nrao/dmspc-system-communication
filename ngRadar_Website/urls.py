@@ -9,6 +9,8 @@ urlpatterns = [
     path('home/gbtevent', views.gbt_event_partial, name='gbt_events'),
     path('home/dsocevent', views.dsoc_event_partial, name='dsoc_events'),
     path('home/submit-waveform/', views.submit_waveform, name='submit_waveform'),
+    path('home/lock-status/',views.lock_status, name ='lock_status'),
+
 
     # Dashboard page URLs
     path('dashboard/', views.dashboard_view, name='dashboard_home'),

@@ -30,3 +30,28 @@
     </div>
   </div>
 </div>
+
+<!--Script to disable button and change the context in button-->
+<script>
+    function checkLock(){
+        fetch('/home/lock-status/')
+                .then(response => response.json())
+                .then(data =>{
+                    var btn = document.getElementById('waveform-submit-btn');
+                    btn.disabled = data.locked;
+                    if (data.locked){
+                        btn.textContent = "Generating ..."
+                    }
+                    else{
+                        btn.textContent = "Submit"
+                    }
+
+                })  
+    }
+
+    checkLock();
+    setInterval(checkLock, 3000);
+</script>
+
+
+

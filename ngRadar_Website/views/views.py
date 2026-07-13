@@ -9,8 +9,11 @@ from pathlib import Path
 
 #libraries used for data streaming
 import json
-from django.http import StreamingHttpResponse, Http404, HttpResponse
+from django.http import StreamingHttpResponse, Http404, HttpResponse, JsonResponse
 import boto3
+
+#libraries used for lock status
+from django.core.cache import cache
 
 from ngRadar_Website.enums import Stations
 from ngRadar_Website.models.models import ObservatoryEvent, uiEvent, gbtEvent, dsocEvent, ngrok_endpoint
@@ -103,7 +106,17 @@ def serve_image(request, uuid):
         content_type=response["ContentType"],
     )
 
-    
+# Function for lock down user
+# Return True if event time is greater than lock time 
+# Othere wise False  
+def lock_status(request):
+    lock_time = cache.get('submit_locked', None)
+    if lock_time is None:
+        return JsonResponse({"locked": False})
+    elif ObservatoryEvent.objects.filter(event_time__gt=lock_time, image_key__isnull=False):
+        cache.delete('submit_locked')
+        return JsonResponse({'locked':False})
+    return JsonResponse({'locked':True})
 
 # Need a function AND another partial template for handling the user inputted payload
 def submit_waveform(request):
@@ -152,6 +165,8 @@ def submit_waveform(request):
             produce(topic, config, key, value)
         main()
         
+        # add a cache for submit time
+        cache.set('submit_locked', datetime.now(timezone.utc))
     return redirect('home')
 
 
@@ -236,3 +251,4 @@ def gbt_event_partial(request):
         "ngRadar_Website/partials/gbt_home_partial.html",
         get_obs_events(),
     )
+
