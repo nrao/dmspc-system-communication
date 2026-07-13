@@ -4,59 +4,84 @@
 
 {% block content %}
 
-<div>
-<header class="text-center fs-5"><strong style="font-weight: 700 !important;">Current Time in UTC:</strong> <span id="live-clock"></span></header>
-  <script>
-          function getTime() {
-              const now = new Date();
-              //function will update the UI date and time using JS functionality
-              // Extract UTC date and time components
-              const year = now.getUTCFullYear();
-              // Months are 0-indexed
-              const month = String(now.getUTCMonth() + 1).padStart(2, '0');
-              const day = String(now.getUTCDate()).padStart(2, '0');
-
-              const hours = String(now.getUTCHours()).padStart(2, '0');
-              const minutes = String(now.getUTCMinutes()).padStart(2, '0');
-              const seconds = String(now.getUTCSeconds()).padStart(2, '0');
-
-              // Assemble the formatted time
-              const formattedTimestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-              
-              document.getElementById('live-clock').textContent = formattedTimestamp;
-          
-              }
-          // Update the clock immediately and refresh every 1000ms
-          getTime();
-          setInterval(getTime, 1000);
-      </script>
+<!-- Row 1: Header / Live Clock -->
+<div class="container text-center mb-4">
+    <div class="fs-5">
+        <strong style="font-weight: 700 !important;">Current Time in UTC:</strong> <span id="live-clock"></span>
+    </div>
+    <script>
+        function getTime() {
+            const now = new Date();
+            const year = now.getUTCFullYear();
+            const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(now.getUTCDate()).padStart(2, '0');
+            const hours = String(now.getUTCHours()).padStart(2, '0');
+            const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+            const seconds = String(now.getUTCSeconds()).padStart(2, '0');
+            const formattedTimestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+            document.getElementById('live-clock').textContent = formattedTimestamp;
+        }
+        getTime();
+        setInterval(getTime, 1000);
+    </script>
+</div>
   
-  <h4 class="mt-4 border rounded pt-3 pb-3 bg-white ps-3 pe-3 text-center mx-auto" style="max-width: 30rem;">
-    {% if gbt_event.tx_waveform is not None %}
-        <span> ✅ All systems online. Observation in progress.</span>
-    {% else %}
-        <span> ⏳ Changing waveform...</span>
-    {% endif %}
-  </h4>
-
+<!-- Row 2: Obs Status & Input Waveform -->
+<div class="row justify-content-center g-3 mb-4">
+    <!-- Obs Status -->
+    <div class="col-12 col-md-6 col-lg-5">
+        <div class="border rounded p-3 bg-white d-flex align-items-center" style="min-height: 5rem;">
+            {% if gbt_event.tx_waveform is not None %}
+                <span> ✅ All systems online. Observation in progress.</span>
+            {% else %}
+                <span> ⏳ Changing waveform...</span>
+            {% endif %}
+        </div>
+    </div>
+      
+    <!-- Input Waveform -->
+    <div class="col-12 col-md-6 col-lg-5">
+        <div class="border rounded p-3 bg-white d-flex align-items-center" style="min-height: 5rem;">
+            <form action="{% url 'submit_waveform' %}" method="POST" class="d-flex align-items-center w-100 gap-2">
+                {% csrf_token %}
+                <label class="mb-0 fw-bold" for="waveform" style="white-space:nowrap;">
+                    Input waveform here:  
+                </label>
+                <select name="waveform" class="form-select">
+                    <option value="W45">W45</option>
+                    <option value="W46">W46</option>
+                    <option value="W47">W47</option>
+                    <option value="W48">W48</option>
+                    <option value="W49">W49</option>
+                    <option value="W50">W50</option>
+                    <option value="W51">W51</option>
+                    <option value="W52">W52</option>
+                    <option value="W53">W53</option>
+                    <option value="W54">W54</option>
+                    <option value="W55">W55</option>
+                </select>
+                <button type="submit" class="btn btn-primary">Submit</button>
+            </form>
+        </div>
+    </div>
 </div>
 
-<!-- Polls the Django views every 5 seconds to refresh partials -->
+<!-- Row 3: HTMX GBT Partial - HTMX: 1 second refresh -->
 <div id="home-gbt-partial" 
-             hx-get="{% url 'gbt_events' %}" 
-             hx-trigger="every 5s" 
-             hx-target="#home-gbt-partial"
-             class="w-100">
-            {% include 'ngRadar_Website/partials/gbt_home_partial.html' %}
+     hx-get="{% url 'gbt_events' %}" 
+     hx-trigger="every 1s" 
+     hx-target="#home-gbt-partial"
+     class="w-100 mb-4">
+    {% include 'ngRadar_Website/partials/gbt_home_partial.html' %}
 </div>
 
+<!-- Row 4: DSOC Partial - HTMX: 1 second refresh -->
 <div id="home-dsoc-partial" 
-             hx-get="{% url 'dsoc_events' %}" 
-             hx-trigger="every 5s" 
-             hx-target="#home-dsoc-partial"
-             class="w-100">
-            {% include 'ngRadar_Website/partials/dsoc_home_partial.html' %}
+     hx-get="{% url 'dsoc_events' %}" 
+     hx-trigger="every 1s" 
+     hx-target="#home-dsoc-partial"
+     class="w-100">
+    {% include 'ngRadar_Website/partials/dsoc_home_partial.html' %}
 </div>
-
 
 {% endblock %}

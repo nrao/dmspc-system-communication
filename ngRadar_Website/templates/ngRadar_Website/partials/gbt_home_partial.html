@@ -1,61 +1,32 @@
-<div class="container mt-4">
-  <div class="row g-4">
-    <!-- Left column -->
-    <div class="col-12 col-md-6">
-      <div class="border rounded p-3 bg-white d-flex align-items-center" style="min-height: 5rem;">
-        <h5 class="fw-bold me-3">Target: </h5>
-        <p class="fs-5"> {{ gbt_event.target }} </p>
-      </div>
-
-      <div class="border rounded p-3 bg-white mt-4 d-flex align-items-center" style="min-height: 5rem;">
-        <h5 class="fw-bold me-3">Object ID:</h5>
-        <p class="fs-5"> {{ gbt_event.object_id }} </p>
-      </div>
-      
-      <div class="border rounded p-3 bg-white mt-4 d-flex align-items-center" style="min-height: 5rem;">
-        <h5 class="fw-bold me-3">Message Time (UTC):</h5>
-        <p class="fs-5"> {{ gbt_event.event_time|date:"F d Y H:i:s" }} </p>
-      </div>
-
-      <!-- add more rows as needed -->
+<div class="row justify-content-center g-3">
+  <!-- Left column -->
+  <div class="col-12 col-md-6 col-lg-5">
+    <div class="border rounded p-3 mb-3 bg-white d-flex align-items-center" style="min-height: 5rem;">
+        <h5 class="fw-bold me-3 mb-0">Target: </h5>
+        <p class="fs-5 mb-0"> {{ gbt_event.target }} </p>
     </div>
 
-    <!-- Right column -->
-    <div class="col-12 col-md-6">
-      <div class="border rounded p-3 bg-white d-flex align-items-center" style="min-height: 5rem;">
-        <form action="{% url 'submit_waveform' %}" method="POST" class="d-flex align-items-center gap-2">
-          {% csrf_token %}
-          <label class="mb-0 fw-bold" for="waveform" style="white-space:nowrap;">
-            Input waveform here:  
-          </label>
-          <select name="waveform" class="form-select">
-            <option value="W45">W45</option>
-            <option value="W46">W46</option>
-            <option value="W47">W47</option>
-            <option value="W48">W48</option>
-            <option value="W49">W49</option>
-            <option value="W50">W50</option>
-            <option value="W51">W51</option>
-            <option value="W52">W52</option>
-            <option value="W53">W53</option>
-            <option value="W54">W54</option>
-            <option value="W55">W55</option>
-          </select>
-          <button type="submit" class="btn btn-primary">Submit</button>
-        </form>
-      </div>
+    <div class="border rounded p-3 mb-3 bg-white d-flex align-items-center" style="min-height: 5rem;">
+        <h5 class="fw-bold me-3 mb-0">Object ID:</h5>
+        <p class="fs-5 mb-0"> {{ gbt_event.object_id }} </p>
+    </div>
+      
+    <div class="border rounded p-3 bg-white d-flex align-items-center" style="min-height: 5rem;">
+        <h5 class="fw-bold me-3 mb-0">Message Time (UTC):</h5>
+        <p class="fs-5 mb-0"> {{ gbt_event.event_time|date:"F d Y H:i:s" }} </p>
+    </div>
+  </div>
 
-      <div class="border rounded p-3 bg-white mt-4 d-flex align-items-center" style="min-height: 5rem;">
-        <h5 class="fw-bold me-3">Transmitted Waveform:</h5>
-        <p class="fs-5">{{ gbt_event.tx_waveform }}</p>
-      </div>
+  <!-- Right column -->
+  <div class="col-12 col-md-6 col-lg-5">
+    <div class="border rounded p-3 mb-3 bg-white d-flex align-items-center" style="min-height: 5rem;">
+        <h5 class="fw-bold me-3 mb-0">Transmitted Waveform:</h5>
+        <p class="fs-5 mb-0">{{ gbt_event.tx_waveform }}</p>
+    </div>
 
-      <div class="border rounded p-3 bg-white mt-4 d-flex align-items-center" style="min-height: 5rem;">
-        <h5 class="fw-bold me-3">Recorded Waveform:</h5>
-        <p class="fs-5"> {{ gbt_event.rec_waveform }} </p>
-      </div>
-
-      <!-- add more rows as needed -->
+    <div class="border rounded p-3 bg-white d-flex align-items-center" style="min-height: 5rem;">
+        <h5 class="fw-bold me-3 mb-0">Recorded Waveform:</h5>
+        <p class="fs-5 mb-0"> {{ gbt_event.rec_waveform }} </p>
     </div>
   </div>
 </div>
