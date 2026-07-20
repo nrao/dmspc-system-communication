@@ -175,10 +175,14 @@ def submit_waveform(request):
 #====================================================
 
 
-@cache_control(no_cache=True, must_revalidate=True, no_store=True) #Desmond's Auth token fix - comment if we decide not to use
+@cache_control(no_cache=True, must_revalidate=True, no_store=True) 
 def login_view(request):
+
+    # Prevent the case when users logged in -> hit back -> hit forward
+    # They are still authenticated -> force logout
     if request.user.is_authenticated:
         logout(request)
+        
     if request.method == 'POST':
         username_input = request.POST['username']
         password_input = request.POST['password']
