@@ -101,15 +101,15 @@ def test_config_func_GBT(mock_AdminClient):
     assert producer_config == {
             "bootstrap.servers": bootstrap,
             "message.max.bytes": 8388608,
-            "client.id": "GBT-producer"
+            "client.id": "gbt-producer"
         }
     assert consumer_topic == ["user_input"]
     assert consumer_config == {
             "bootstrap.servers": bootstrap,
             "fetch.max.bytes": 8388608,
             "session.timeout.ms": 45000,
-            "client.id": "GBT-consumer",
-            "group.id": "GBT-consumer-group",
+            "client.id": "gbt-consumer",
+            "group.id": "gbt-consumer-group",
             "auto.offset.reset": "earliest",
         }
     mock_AdminClient.assert_called_once_with(
@@ -117,8 +117,50 @@ def test_config_func_GBT(mock_AdminClient):
     )
 
 
+@pytest.mark.parametrize("sim", [
+        (Stations.SC),
+        (Stations.HN),
+        (Stations.FD)
+    ])
+@patch("ngRadar_Website.utils.AdminClient")
+def test_config_func_vlba(mock_AdminClient, sim):
+    """Scenario 2: sim is a VLBA site"""
+
+    #dealing with the create_topic function, which calls f.result:
+    future = MagicMock()
+    future.result.return_value = None
+    
+    mock_admin = mock_AdminClient.return_value
+    mock_admin.create_topics.return_value = {
+        "GBT_data": future,
+        "VLBA_data": future,
+    }
+
+    bootstrap = "12345"
+
+    producer_topic, producer_config, consumer_topic, consumer_config = config_func(sim, bootstrap)
+
+    assert producer_topic == "VLBA_data"
+    assert producer_config == {
+            "bootstrap.servers": bootstrap,
+            "message.max.bytes": 8388608,
+            "client.id": f"{sim.name.lower()}-producer"
+        }
+    assert consumer_topic == ["GBT_data"]
+    assert consumer_config == {
+            "bootstrap.servers": bootstrap,
+            "fetch.max.bytes": 8388608,
+            "session.timeout.ms": 45000,
+            "client.id": f"{sim.name.lower()}-consumer",
+            "group.id": f"{sim.name.lower()}-consumer-group",
+            "auto.offset.reset": "earliest",
+        }
+    mock_AdminClient.assert_called_once_with(
+        {"bootstrap.servers": bootstrap}
+    )
+
 def test_config_func_DSOC():
-    """Scenario 2: sim is DSOC"""
+    """Scenario 3: sim is DSOC"""
 
     sim = Stations.DSOC
     bootstrap = "12345"
@@ -131,7 +173,7 @@ def test_config_func_DSOC():
             "fetch.max.bytes": 8388608,
             "session.timeout.ms": 45000,
             "client.id": "dsoc-consumer",
-            "group.id": "consumer-group",
+            "group.id": "dsoc-consumer-group",
             "auto.offset.reset": "earliest",
         }
 

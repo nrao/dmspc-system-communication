@@ -59,12 +59,9 @@ def config_func(sim, bootstrap):
             # VLBA consumes from GBT, produces to VLBA
             topic1 = "GBT_data"
             topic2 = "VLBA_data"
-    elif sim == Stations.DSOC:
+    else:
         type = "consumer"
         topic = ["GBT_data"]  #consumes from the GBT's topic
-    else:
-        err = print("Sim is not recognized (expects GBT, DSOC, or a VLBA site)")
-        return err
 
     # perform the shared behavior for each type:
     if type == "producer and consumer":
