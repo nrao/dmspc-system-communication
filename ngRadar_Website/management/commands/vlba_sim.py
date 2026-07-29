@@ -1,8 +1,11 @@
+import subprocess
+
 from django.core.management.base import BaseCommand
 from confluent_kafka import Producer
 from ngRadar_Website.utils import bootstrap, consume
 from ngRadar_Website.enums import Stations
 from ngRadar_Website.models.models import gbtEvent
+from pathlib import Path
 
 
 """
@@ -17,6 +20,11 @@ Note: I am going to treat this sim as the Hancock VLBA site (Stations.HN) for ha
 
 """
 
+COMMAND_DIR = Path("insert_path_to_etransfer/architecture/")  # TODO get path for etransfer
+CLIENT_SOURCE = Path("/data/new/*")  # TODO figure out what to put here
+DAEMON_DESTINATION = "localhost:/data/"  # TODO figure out what to put here
+
+
 def produce(topic, config, key, value):
     # creates a new producer instance
     producer = Producer(config)
@@ -28,6 +36,7 @@ def produce(topic, config, key, value):
     # send any outstanding or buffered messages to the Kafka broker
     producer.flush()
 
+
 def process_msg(msg, producer_topic, producer_config):
     #decode the GBT payload that is a single string of just the uuid:
     gbt_uuid = msg.key().decode("utf-8")
@@ -35,6 +44,28 @@ def process_msg(msg, producer_topic, producer_config):
     key, value = f"{gbt_uuid}", "e-transfer started"
     # produce this new message, lets DSOC know to produce image(s)
     produce(producer_topic, producer_config, key, value)
+
+
+def start_etransfer():
+    # TODO put this block in vlba docker compose
+    # run etd command somehow
+    # volumes:
+    #   - ./etransfer_data/vlba:/data  # contains new and transferred folders?
+
+    # TODO put this block in dsoc docker compose
+    # run etd command somehow unless this only needs to be done once
+    # volumes:
+    #   - ./etransfer_data/dsoc:/data  # includes raw and processed folders?
+
+    cmd = ["./etc", f"{CLIENT_SOURCE}", f"{DAEMON_DESTINATION}"]  # TODO figure out where to access etc
+
+    result = subprocess.run(
+        cmd,
+        cwd=COMMAND_DIR,
+        capture_output=True,  # set False if you want command output to print to the terminal
+        text=True,
+        check=False,  # set True if you want exceptions on non-zero exit
+    )
 
 
 class Command(BaseCommand):
