@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from confluent_kafka.admin import AdminClient, NewTopic
+from confluent_kafka.admin import AdminClient, NewTopic, KafkaException, KafkaError
 from dotenv import load_dotenv
 from matplotlib.path import Path
 from pathlib import Path
@@ -43,50 +43,74 @@ def config_func(sim, bootstrap):
     """
     Description: Generates config file and Kafka topic info, based on the sim.
                 Designed to be called in conjunction with bootstrap function.
-    Inputs: sim = the sim file in use (GBT or DSOC)
+    Inputs: sim = the sim file in use (GBT, DSOC, or VLBA)
             bootstrap = bootstrap info derived from .env
     Returns: topic(s) and config(s) variables
     """
-    if sim == Stations.GBT:
-        
-        #bootstrap = os.environ["BOOTSTRAP_SERVER"] 
+
+    # determine the type of sim being used - each one has unique kafka topics:
+    if sim != Stations.DSOC:
+        type = "producer and consumer"
+        if sim == Stations.GBT:
+            # GBT consumes from UI, produces to GBT
+            topic1 = "user_input"
+            topic2 = "GBT_data"
+        else:
+            # VLBA consumes from GBT, produces to VLBA
+            topic1 = "GBT_data"
+            topic2 = "VLBA_data"
+    elif sim == Stations.DSOC:
+        type = "consumer"
+        topic = ["GBT_data"]  #consumes from the GBT's topic
+    else:
+        err = print("Sim is not recognized (expects GBT, DSOC, or a VLBA site)")
+        return err
+
+    # perform the shared behavior for each type:
+    if type == "producer and consumer":
+        # config for both producer and consumer sims
         admin = AdminClient({"bootstrap.servers": bootstrap})
         topics = [
-            NewTopic("user_input", num_partitions=3, replication_factor=1),
-            NewTopic("GBT_data", num_partitions=1, replication_factor=1),
+            NewTopic(topic1, num_partitions=3, replication_factor=1),
+            NewTopic(topic2, num_partitions=1, replication_factor=1),
         ]
         fs = admin.create_topics(topics, request_timeout=30)
 
         for topic, f in fs.items():
             # f is a Future; result() will raise if creation failed for reasons other than "already exists"
-            f.result()
+            try:
+                f.result()
+            # handle the case where it tried to create a topic that already exists:
+            except KafkaException as e:
+                if e.args[0].code() != KafkaError.TOPIC_ALREADY_EXISTS:
+                    raise
         
-        producer_topic = "GBT_data"  # NOTE The topic to which the messages will be sent, rename accordingly to whatever topic you want to send to
+        producer_topic = topic2  # NOTE The topic to which the messages will be sent, rename accordingly to whatever topic you want to send to
         producer_config = {
             "bootstrap.servers": bootstrap,
             "message.max.bytes": MAX_BYTES,# NOTE can make this constant
-            "client.id": "GBT-producer"
+            "client.id": f"{sim.name.lower()}-producer",
         }
 
-        consumer_topic = ["user_input"]
+        consumer_topic = [topic1]
         consumer_config = {
             "bootstrap.servers": bootstrap,
             "fetch.max.bytes": MAX_BYTES,
             "session.timeout.ms": SESSION_TIMEOUT_MS,
-            "client.id": "GBT-consumer",
-            "group.id": "GBT-consumer-group",
+            "client.id": f"{sim.name.lower()}-consumer",
+            "group.id": f"{sim.name.lower()}-consumer-group",
             "auto.offset.reset": "earliest",
         }
         return producer_topic, producer_config, consumer_topic, consumer_config
     else:
-        #DSOC config
-        topic = ["GBT_data"]  #consumes from the GBT's topic
+        # config for just consumer
+        
         config = {
             "bootstrap.servers": bootstrap,
             "fetch.max.bytes": MAX_BYTES,
             "session.timeout.ms": SESSION_TIMEOUT_MS,
-            "client.id": "dsoc-consumer",
-            "group.id": "consumer-group",
+            "client.id": f"{sim.name.lower()}-consumer",
+            "group.id": f"{sim.name.lower()}-consumer-group",
             "auto.offset.reset": "earliest",
         }
 
@@ -96,7 +120,7 @@ def config_func(sim, bootstrap):
 def bootstrap(sim):
     """
     Description: Extracts bootstrap info from .env and ngrok, then uses config_func to generate outputs
-    Inputs: sim = the sim file in use (GBT or DSOC)
+    Inputs: sim = the sim file in use (GBT, DSOC, or VLBA)
     Returns: topic(s) and config(s) variables
     """
     load_dotenv()  # Load environment variables from .env file
@@ -113,7 +137,7 @@ def bootstrap(sim):
     if not bootstrap:
         raise RuntimeError("BOOTSTRAP_SERVER not found in /out/ngrok_endpoint.env")
     
-    if sim == Stations.GBT:
+    if sim != Stations.DSOC:
         producer_topic, producer_config, consumer_topic, consumer_config = config_func(sim, bootstrap)
         return producer_topic, producer_config, consumer_topic, consumer_config
     else:
