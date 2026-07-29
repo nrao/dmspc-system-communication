@@ -14,12 +14,10 @@ import time
 
 
 """
-NOTE: This sim needs to be moodified. With our new sequencing, DSOC no longer needs to read the GBT table. The VLBA stations will send all relevant information via Kafka or filename (does this sound good?)
-
 This code will:
-- consume a message from the GBT
-- pull the record from the GBT postgres table for waveform info
-- create an image file
+- consume a message from the VLBA that data is being e-transferred
+- pull the record from the GBT table using uuid sent in Kafka message from VLBA
+- generate an image file using random data (not e-tranferred data yet)
 - save image file to seaweedfs object store
 - load the image key + the uuid into the DB
 """
