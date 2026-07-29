@@ -167,7 +167,7 @@ def test_config_func_DSOC():
 
     topic, config = config_func(sim, bootstrap)
 
-    assert topic == ["GBT_data"]
+    assert topic == ["VLBA_data"]
     assert config == {
             "bootstrap.servers": bootstrap,
             "fetch.max.bytes": 8388608,

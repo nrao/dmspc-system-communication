@@ -11,6 +11,10 @@ This code will:
 - use etc to send stored (or randomly generated) data to DSOC
 - produce a Kafka message to DSOC that e-transfer started, including the uuid 
 - continue listening for Kafka messages
+
+Note: I am going to treat this sim as the Hancock VLBA site (Stations.HN) for hard-coded station data
+    I chose Hancock because I am from New Hampshire and I wanted to
+
 """
 
 def produce(topic, config, key, value):
@@ -39,6 +43,6 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         print("Starting VLBA simulator")
 
-        producer_topic, producer_config, consumer_topic, consumer_config = bootstrap(Stations.VLBA) # TODO: update according to Luara's bootstrap changes
+        producer_topic, producer_config, consumer_topic, consumer_config = bootstrap(Stations.HN) # TODO: update according to Luara's bootstrap changes -THIS SHOULD BE GOOD NOW!
 
         consume(consumer_topic, consumer_config, process_msg, producer_topic=producer_topic, producer_config=producer_config)

@@ -60,8 +60,9 @@ def config_func(sim, bootstrap):
             topic1 = "GBT_data"
             topic2 = "VLBA_data"
     else:
+        # DSOC is now consuming from VLBA
         type = "consumer"
-        topic = ["GBT_data"]  #consumes from the GBT's topic
+        topic = ["VLBA_data"]  #consumes from the GBT's topic
 
     # perform the shared behavior for each type:
     if type == "producer and consumer":
