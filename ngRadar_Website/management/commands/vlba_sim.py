@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-
+from confluent_kafka import Producer
 from ngRadar_Website.utils import bootstrap, consume
 from ngRadar_Website.enums import Stations
 from ngRadar_Website.models.models import gbtEvent
@@ -13,10 +13,24 @@ This code will:
 - continue listening for Kafka messages
 """
 
+def produce(topic, config, key, value):
+    # creates a new producer instance
+    producer = Producer(config)
 
-def process_msg(msg, producer_topic=None, producer_config=None):
+    # producing a message to the specified topic 
+    producer.produce(topic, key=key, value=value)
+    print(f"Produced message to topic {topic} with key {key}.")
+
+    # send any outstanding or buffered messages to the Kafka broker
+    producer.flush()
+
+def process_msg(msg, producer_topic, producer_config):
     #decode the GBT payload that is a single string of just the uuid:
     gbt_uuid = msg.key().decode("utf-8")
+
+    key, value = f"{gbt_uuid}", "e-transfer started"
+    # produce this new message, lets DSOC know to produce image(s)
+    produce(producer_topic, producer_config, key, value)
 
 
 class Command(BaseCommand):
@@ -25,8 +39,6 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         print("Starting VLBA simulator")
 
-        topic, config = bootstrap(Stations.DSOC)
+        producer_topic, producer_config, consumer_topic, consumer_config = bootstrap(Stations.VLBA) # TODO: update according to Luara's bootstrap changes
 
-        topic, config = bootstrap(Stations.DSOC)
-
-        consume(topic, config, process_msg)
+        consume(consumer_topic, consumer_config, process_msg, producer_topic=producer_topic, producer_config=producer_config)

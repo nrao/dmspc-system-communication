@@ -17,7 +17,7 @@ import time
 This code will:
 - consume a message from the VLBA that data is being e-transferred
 - pull the record from the GBT table using uuid sent in Kafka message from VLBA
-- generate an image file using random data (not e-tranferred data yet)
+- generate an image file using random data (not e-transferred data yet)
 - save image file to seaweedfs object store
 - load the image key + the uuid into the DB
 """
