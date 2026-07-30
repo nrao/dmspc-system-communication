@@ -1,8 +1,14 @@
 Commands to add eTransfer to our repo
+1. Add a Subtree
+    git remote add -f eTransferCodebase https://github.com/jive-vlbi/etransfer.git
+2. Add the Subtree to a local repo
+    git subtree add --prefix eTransfer_codebase/ eTransferCodebase master
+3. Pull in new commits from the subtree
+    git subtree pull --prefix .eTransfer_codebase/ eTransferCodebase master
 
 1. Create a new folder and clone to that folder
     git clone https://github.com/jive-vlbi/etransfer.git eTransferCodebase
 2. Run the makefile
-    cd eTransferCodebase && make
-3. Pull new changes from the eTransfer repo, then return to original directory
+    cd eTransferCodebase && make && cd-
+2. Pull new changes from the eTransfer repo, then return to original directory
     cd eTransferCodebase && git pull https://github.com/jive-vlbi/etransfer.git master && cd -
