@@ -3,7 +3,7 @@
 set -euo pipefail
 KAFKA_PROFILES="--profile kafka"
 
-KAFKA_SERVICES="zookeeper broker kafka-ui ngrok gbt seaweedfs dsoc ngrok-writer"
+KAFKA_SERVICES="zookeeper broker kafka-ui ngrok gbt seaweedfs dsoc vlba ngrok-writer"
 
 COMMAND="$1"
 

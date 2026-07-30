@@ -184,7 +184,7 @@ def submit_waveform(request):
 @cache_control(no_cache=True, must_revalidate=True, no_store=True, max_age=0) #Desmond's Auth token fix - comment if we decide not to use
 def login_view(request):
     #logout_view(request)
-    
+    print(request)
     if(request.user.is_authenticated):#will log the user out if they come to the login page and are still logged in
         return logout_view(request)#goes to logout message
 

@@ -14,6 +14,10 @@ Code for prototyping system communication for the ngRadar project. This code is 
 # Start the Virtual Environment
 # source .venv/bin/activate
 
+# create a new superuser
+# ./control.sh shell
+# python3 manage.py createsuperuser
+# exit
 
 ## For your convenience, use the below `control.sh` wrapper controls:
 

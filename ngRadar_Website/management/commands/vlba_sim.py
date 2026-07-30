@@ -25,8 +25,9 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         print("Starting VLBA simulator")
 
-        topic, config = bootstrap(Stations.DSOC)
+        #keep the following lines commented out when running for now, otherwise the docker container will crash
+        # topic, config = bootstrap(Stations.DSOC)
 
-        topic, config = bootstrap(Stations.DSOC)
+        # topic, config = bootstrap(Stations.DSOC)
 
-        consume(topic, config, process_msg)
+        # consume(topic, config, process_msg)
