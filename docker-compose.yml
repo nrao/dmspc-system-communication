@@ -5,6 +5,11 @@
 # it uses the Render-hosted Postgres database.
 # ===========================================================================
 
+
+#==========================
+# UI + DB containers:
+#==========================
+
 services:
   ngradar_website:
     build: .
@@ -56,6 +61,10 @@ services:
       - staging_dump:/dump
     profiles:
       - tools
+
+#==========================
+# kafka related containers:
+#==========================
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.1
@@ -174,6 +183,10 @@ services:
         python manage.py ngrok_writer
 
 
+#==========================
+# sim containers:
+#==========================
+
   gbt:
     build: .
     env_file:
@@ -213,6 +226,7 @@ services:
     volumes:
       - .:/service
       - ngrok_env:/out
+      - dsoc_transfer:/incoming
     networks:
       - ngradar_website_network
     profiles: ["kafka"]
@@ -241,6 +255,7 @@ services:
       volumes:
         - .:/service
         - ngrok_env:/out
+        - vlba_transfer:/transfer
       networks:
         - ngradar_website_network
       profiles: ["kafka"]
@@ -257,6 +272,10 @@ services:
           echo "------------------------------------"
           python manage.py vlba_sim
 
+
+#==========================
+# storage containers:
+#==========================
 
 
   seaweedfs:
@@ -297,12 +316,39 @@ services:
       - ngradar_website_network
 
 
+#==========================
+# etransfer containers:
+#==========================
+etr_client:
+  build:
+    context: ./etr-client
+  depends_on:
+    - vlba
+    - etr_daemon
+  networks:
+    - ngradar_website_network
+  volumes:
+    - vlba_transfer:/transfer
+
+
+etr_daemon:
+  build:
+    context: ./etr-daemon
+  depends_on:
+    - dsoc
+  networks:
+    - ngradar_website_network
+  volumes:
+    - dsoc_transfer:/incoming
+
 
 volumes:
   postgres_data:
   staging_dump:
   seaweed_data:
   ngrok_env:
+  vlba_transfer:
+  dsoc_transfer:
 
 networks:
   ngradar_website_network:
