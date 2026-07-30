@@ -1,7 +1,0 @@
-Commands for working with GIT Subtrees
-1. Add a Subtree
-    git remote add -f eTransferCodebase https://github.com/jive-vlbi/etransfer.git
-2. Add the Subtree to a local repo
-    git subtree add --prefix eTransfer_codebase/ eTransferCodebase master
-3. Pull in new commits from the subtree
-    git subtree pull --prefix .eTransfer_codebase/ eTransferCodebase master
