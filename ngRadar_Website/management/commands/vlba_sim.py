@@ -6,6 +6,7 @@ from ngRadar_Website.utils import bootstrap, consume
 from ngRadar_Website.enums import Stations
 from ngRadar_Website.models.models import gbtEvent
 from pathlib import Path
+import sys
 
 
 """
@@ -45,6 +46,9 @@ def process_msg(msg, producer_topic, producer_config):
     # produce this new message, lets DSOC know to produce image(s)
     produce(producer_topic, producer_config, key, value)
 
+    # after sending a kafka message, begin e-transfer NOTE we need the etransfer repo in our repo to get this working
+    #start_etransfer()
+
 
 def start_etransfer():
     # TODO put this block in vlba docker compose
@@ -62,9 +66,12 @@ def start_etransfer():
     result = subprocess.run(
         cmd,
         cwd=COMMAND_DIR,
-        capture_output=True,  # set False if you want command output to print to the terminal
+        capture_output=False,  # set False if you want command output to print to the terminal
         text=True,
         check=False,  # set True if you want exceptions on non-zero exit
+        stdin=sys.stdin, # these three inputs (stdin, stdout, stderr) are necessary!
+        stdout=sys.stdout, # etc behaves differently when connected to pipes instead of the terminal (it keeps initiating transfers continuously)
+        stderr=sys.stderr, # these variables ensure that it is connected to the terminal and has expected behavior
     )
 
 
