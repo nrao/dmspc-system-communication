@@ -1,0 +1,926 @@
+// etransfer server program/etdc=etransfer daemon + client
+// Copyright (C) 2007-2016 Harro Verkouter
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// any later version.
+// 
+// This program is distributed in the hope that it will be useful, but WITHOUT ANY
+// WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+// PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// 
+// Author:  Harro Verkouter - verkouter@jive.eu
+//          Joint Institute for VLBI in Europe
+//          P.O. Box 2
+//          7990 AA Dwingeloo
+#include <version.h>
+#include <etdc_fd.h>
+#include <reentrant.h>
+//#include <etdc_thread.h>
+#include <etdc_debug.h>
+#include <etdc_assert.h>
+#include <etdc_etd_state.h>
+#include <etdc_etdserver.h>
+#include <etdc_stringutil.h>
+#include <etdc_sciprint.h>
+#include <argparse.h>
+
+#include <map>
+#include <thread>
+#include <string>
+#include <vector>
+#include <future>
+#include <iterator>
+#include <iostream>
+#include <functional>
+
+// C-stuff
+#include <pwd.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+//#include <uuid/uuid.h>
+#include <sys/resource.h>
+
+
+// Some handy shorthands
+using namespace std;
+namespace AP = argparse;
+
+using fdlist_type     = std::list<etdc::etdc_fdptr>;
+using signallist_type = std::vector<int>;
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// When daemonizing we may need to change to different user id
+//
+///////////////////////////////////////////////////////////////////////////////
+HUMANREADABLE(struct passwd*, "user name")
+template <typename... Traits>
+std::basic_ostream<Traits...>& operator<<(std::basic_ostream<Traits...>& os, struct passwd const*const usert) {
+    return os << ((usert==nullptr) ? "<unknown usert>" : usert->pw_name);
+}
+void  do_daemonize( void );
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Map protocol to function-that-prints-some-debug-info about the socket
+//  for that protocol
+//
+///////////////////////////////////////////////////////////////////////////////
+
+static std::map<std::string, std::function<void(etdc::etdc_fdptr, std::string const&)>>
+dbgMap = {
+    {"udt", [](etdc::etdc_fdptr pSok, std::string const& s) {
+                                                                etdc::udt_mss     mss;
+                                                                etdc::udt_rcvbuf  rcv;
+                                                                etdc::udt_sndbuf  snd;
+                                                                etdc::udt_linger  linger;
+                                                                etdc::udt_max_bw  max_bw;
+                                                                etdc::getsockopt(pSok->__m_fd, rcv, linger, snd, mss, max_bw);
+                                                                ETDCDEBUG(1, s << "/UDT rcvbuf = " << rcv << " sndbuf = " << snd
+                                                                               << " linger=" << untag(linger).l_onoff << ":" << untag(linger).l_linger
+                                                                               << " mss=" << untag(mss)
+                                                                               << " max_bw=" << (untag(max_bw)<0 ? "Inf" : etdc::sciprint(untag(max_bw), "Bps"))
+                                                                               << endl);
+                                                            }},
+    {"udt6", [](etdc::etdc_fdptr pSok, std::string const& s) {
+                                                                etdc::udt_mss      mss;
+                                                                 etdc::udt_rcvbuf  rcv;
+                                                                 etdc::udt_sndbuf  snd;
+                                                                 etdc::udt_linger  linger;
+                                                                 etdc::udt_max_bw  max_bw;
+                                                                 etdc::getsockopt(pSok->__m_fd, rcv, linger, mss, max_bw);
+                                                                 ETDCDEBUG(1, s << "/UDT6 rcvbuf = " << rcv << " sndbuf = " << snd
+                                                                                << " linger=" << untag(linger).l_onoff << ":" << untag(linger).l_linger
+                                                                                << " mss=" << untag(mss)
+                                                                                << " max_bw=" << (untag(max_bw)<0 ? "Inf" : etdc::sciprint(untag(max_bw), "Bps"))
+                                                                                << endl);
+                                                             }},
+    {"tcp", [](etdc::etdc_fdptr pSok, std::string const& s) {
+                                                                etdc::so_rcvbuf    rcv;
+                                                                etdc::so_sndbuf    snd;
+                                                                etdc::so_keepalive ka;
+                                                                etdc::getsockopt(pSok->__m_fd, rcv, snd, ka);
+                                                                ETDCDEBUG(1, s << "/TCP rcvbuf = " << rcv << " sndbuf = " << snd << " keepalive = " << ka << endl);
+                                                            }},
+    {"tcp6", [](etdc::etdc_fdptr pSok, std::string const& s) {
+                                                                 etdc::so_rcvbuf    rcv;
+                                                                 etdc::so_sndbuf    snd;
+                                                                 etdc::ipv6_only    ipv6;
+                                                                 etdc::so_keepalive ka;
+                                                                 etdc::getsockopt(pSok->__m_fd, rcv, ipv6, snd, ka);
+                                                                 ETDCDEBUG(1, s << "/TCP6 rcvbuf = " << rcv << " sndbuf = " << snd << ", ipv6 only = " << ipv6 << " keepalive = " << ka << endl);
+                                                             }},
+    {"srt", [](etdc::etdc_fdptr pSok, std::string const& s) {
+                                etdc::srt_mss     mss;
+                                etdc::srt_max_bw  maxbw;
+                                etdc::srt_sndsyn  sndsyn;
+                                etdc::srt_rcvsyn  rcvsyn;
+                                etdc::getsockopt(pSok->__m_fd, sndsyn, rcvsyn, mss, maxbw);
+                                ETDCDEBUG(1, s << "/SRT rcvsyn = " << rcvsyn << " sndsyn = " << sndsyn
+                                               << " mss=" << untag(mss)
+                                               << " max_bw=" << (untag(maxbw)<0 ? "Inf" : etdc::sciprint(untag(maxbw), "Bps"))
+                                               << endl);
+                             }},
+    {"srt6", [](etdc::etdc_fdptr pSok, std::string const& s) {
+                                 etdc::srt_mss     mss;
+                                 etdc::srt_max_bw  maxbw;
+                                 etdc::srt_sndsyn  sndsyn;
+                                 etdc::srt_rcvsyn  rcvsyn;
+                                 etdc::getsockopt(pSok->__m_fd, sndsyn, rcvsyn, mss, maxbw);
+                                 ETDCDEBUG(1, s << "/SRT6 rcvsyn = " << rcvsyn << " sndsyn = " << sndsyn
+                                                << " mss=" << untag(mss)
+                                                << " max_bw=" << (untag(maxbw)<0 ? "Inf" : etdc::sciprint(untag(maxbw), "Bps"))
+                                                << endl);
+                             }}
+};
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Transform string on command line into a working server file descriptor
+//
+///////////////////////////////////////////////////////////////////////////////
+
+// Introduce a readable overload for a fdptr so it'll render human readable
+// in the automatically generated help
+HUMANREADABLE(etdc::etdc_fdptr,  "address")
+HUMANREADABLE(etdc::mss_type,    "int (bytes)")
+HUMANREADABLE(etdc::max_bw_type, "int (bytes per second)")
+HUMANREADABLE(etdc::so_keepalive, "true|false")
+
+#ifdef ETDC_HAVE_TCP_KEEPALIVE
+HUMANREADABLE(etdc::tcp_keepcnt, "int")
+HUMANREADABLE(etdc::tcp_keepintvl, "int")
+HUMANREADABLE(etdc::tcp_keepidle, "int")
+#endif
+
+HUMANREADABLE(etdc::ACLptr,      "file")
+
+// Let's make the URL syntax at least somewhat similar to that of the client:
+//     protocol://[local address][[:#]port]
+//
+// In the string below the digits under the '(' are the submatch indices of that group.
+static const std::regex rxURL{
+    /* protocol */
+    "((tcp|udt|srt)6?)://"
+//   12 
+    /* optional host name or IPv6 'coloned hex' (with optional interface suffix) in literal []'s*/
+    "([-a-z0-9\\.]+|\\[[:0-9a-f]+(/[0-9]{1,3})?(%[a-z0-9\\.]+)?\\])?" 
+//   3                           4             5
+    /* port number - maybe default? */
+    "(?:[:#]([0-9]+))?"
+//             6
+    , std::regex_constants::ECMAScript | std::regex_constants::icase
+};
+
+
+// the host name may be surrounded by '[' ... ']' for a literal
+// "coloned hex" IPv6 address
+static std::string unbracket(std::string const& h) {
+    static const std::regex rxBracket("\\[([:0-9a-f]+(/[0-9]{1,3})?(%[a-z0-9]+)?)\\]",
+                                      std::regex_constants::ECMAScript | std::regex_constants::icase);
+    return std::regex_replace(h, rxBracket, "$1");
+}
+
+struct socketoptions_type {
+
+    socketoptions_type():
+        bufSize{ 32*1024*1024 }, udtMSS{ 0 }, udtBW{ 0 }, srtMSS{ 0 }, srtBW{ 0 }, srtBufSize{ 0 }
+    {}
+
+    size_t            bufSize;
+    etdc::mss_type    udtMSS;
+    etdc::max_bw_type udtBW;
+    etdc::mss_type    srtMSS;
+    etdc::max_bw_type srtBW;
+    size_t            srtBufSize;
+};
+
+
+struct string2socket_type_m {
+    string2socket_type_m() = delete;
+    string2socket_type_m(etdc::port_type defPort, socketoptions_type const& so):
+        __m_default_port( defPort ), __m_sockopts( so )
+    {}
+
+    // to be a converter we must have "void (<target type>&, std::string const&) const"
+    // The string is guaranteed to match the regex above :-)
+    etdc::etdc_fdptr operator()(std::string const& s) const {
+        // We're going to repeat the matching: we need the submatches now.
+        // The cmdline has already verified the match so we can do this
+        // unchecked.
+        etdc::etdc_fdptr                                fd;
+        std::match_results<std::string::const_iterator> m;
+        std::regex_match(s, m, rxURL);
+
+        // After having matched the fields out of the string we can use them
+        const auto  proto = etdc::protocol_type(m[1]);
+        auto        srvr  = etdc::detail::server_defaults.find( untag(proto) )->second();
+
+        // Merge our settings with the default client settings
+        etdc::detail::update_srv( srvr, etdc::host_type(unbracket(m[3])),
+                (m[6].length() ? port(m[6]) :  __m_default_port),
+                etdc::so_rcvbuf{ __m_sockopts.bufSize }, etdc::so_sndbuf{ __m_sockopts.bufSize },
+                etdc::udt_rcvbuf{ 32*1024*1024 },
+                etdc::blocking_type{ true });
+
+        // Any options overridden on the command line?
+        if( untag(__m_sockopts.udtMSS) )
+            etdc::detail::update_srv( srvr, etdc::udt_mss{ untag(__m_sockopts.udtMSS) } );
+
+        if( untag(__m_sockopts.udtBW) )
+            etdc::detail::update_srv( srvr, etdc::udt_max_bw{ untag(__m_sockopts.udtBW) } );
+
+        if( untag(__m_sockopts.srtMSS) )
+            etdc::detail::update_srv( srvr, etdc::srt_mss{ untag(__m_sockopts.srtMSS) } );
+
+        if( untag(__m_sockopts.srtBW) )
+            etdc::detail::update_srv( srvr, etdc::srt_max_bw{ untag(__m_sockopts.srtBW) } );
+
+        if( __m_sockopts.srtBufSize )
+            etdc::detail::update_srv( srvr,
+                                      etdc::srt_rcvbuf{ static_cast<int>(__m_sockopts.srtBufSize) },
+                                      etdc::srt_sndbuf{ static_cast<int>(__m_sockopts.srtBufSize) } );
+
+        fd = mk_server( untag(proto), srvr );
+
+        auto socknm =  fd->getsockname(fd->__m_fd);
+        ETDCDEBUG(2, "etd: server is-at " << socknm << endl);
+        dbgMap[get_protocol(socknm)](fd, "server"); 
+        return fd;
+   }
+
+    const etdc::port_type    __m_default_port;
+    const socketoptions_type __m_sockopts;
+};
+
+
+
+////////////////////////////////////////////////////////////////////////////////////
+//
+// Forward declarations &cet
+//
+////////////////////////////////////////////////////////////////////////////////////
+template <int> void command_server_thread(etdc::etdc_fdptr fd, etdc::etd_state&);
+template <int> void data_server_thread(etdc::etdc_fdptr fd, etdc::etd_state&);
+
+// Make sure our zignal handlert has C-linkage
+extern "C" {
+    void dummy_signal_handler(int) { }
+}
+
+// This is supposed to execute in a separate thread and promises to deliver
+// the signal number that was raised
+void signal_thread(signallist_type const& sigs, std::promise<int>& promise) {
+    int       received;
+    sigset_t  sset;
+
+    // Before we actually unblock the signals, we prepare the sigset_t for
+    // signals we'll wait for
+    // Note: on some platforms sigemptyset() is a macro, not a fn call
+    //       so "::sigemptyset()" don't compile, unfortunately :-(
+    //       And likewise for sigaddset & friends
+    sigemptyset(&sset);
+    for(auto s: sigs)
+        sigaddset(&sset, s);
+
+    ETDCDEBUG(2, "sigwaiterthread: enter wait phase" << endl);
+    // ... and wait for any of them to happen
+    ::sigwait(&sset, &received);
+    ETDCDEBUG(2, "sigwaiterthread: got signal " << received << endl);
+    promise.set_value( received );
+}
+
+// Monitor the transfer list, and force-terminate/delete transfers that have
+// been inactive for a specified time. This prevents locking up the
+// resource(s) - e.g. addressing "path already in use" after the client has
+// been interrupted or the network connection has gone away without us
+// knowing about it.
+void transfer_monitor_thread(etdc::etd_state& serverState, float /*etdc::transfer_clock::duration*/ to) {
+    const auto timeout = std::chrono::duration_cast<etdc::transfer_clock::duration>(std::chrono::duration<float>(to));
+    while( true ) {
+        std::unique_lock<std::mutex>                 lk( serverState.lock );
+        if( serverState.condition.wait_for(lk, timeout, [&serverState]() { return atomic_load(&serverState.cancelled); }) )
+            break;
+        ETDCDEBUG(0, "transfer_monitor_thread: waking up!" << std::endl);
+        std::vector<etdc::uuid_type>                 timed_out_ids;
+        etdc::transfer_clock::time_point const       now( etdc::transfer_clock::now() );
+
+        for(etdc::transfermap_type::iterator xfer = serverState.transfers.begin(); xfer!=serverState.transfers.end(); xfer++) {
+            auto const last_update = xfer->second->lastUpdate.load();
+            if( (now - last_update) >= timeout ) {
+                // First attempt to transition cancelled -> true so we only
+                // kick the worker thread once.
+                bool expected = false;
+                if( xfer->second->cancelled.compare_exchange_strong(expected, true) ) {
+                    // The timeout_function should have been filled in by the
+                    // thread doing the actual transfer, so it knows the fd's
+                    // as well as its own thread-id
+                    xfer->second->timeout_function();
+                }
+
+                timed_out_ids.push_back( xfer->first );
+                ETDCDEBUG(0, "transfer_monitor_thread: transfer " << xfer->second->path << " [om=" <<
+                             xfer->second->openMode << "] [uuid=" << xfer->first << "] timed out" << std::endl);
+            }
+        }
+        lk.unlock();
+
+        for(auto const& uuid : timed_out_ids) {
+            bool removed = false;
+            while( !removed && !atomic_load(&serverState.cancelled) ) {
+                std::unique_lock<std::mutex> state_lock( serverState.lock );
+                auto it = serverState.transfers.find( uuid );
+                if( it==serverState.transfers.end() ) {
+                    removed = true;
+                    break;
+                }
+
+                std::unique_lock<std::mutex> transfer_guard( it->second->xfer_lock, std::try_to_lock );
+                if( !transfer_guard.owns_lock() ) {
+                    state_lock.unlock();
+                    std::this_thread::sleep_for( std::chrono::milliseconds(10) );
+                    continue;
+                }
+
+                serverState.transfers.erase( it );
+                serverState.condition.notify_all();
+                removed = true;
+            }
+        }
+    }
+    return;
+}
+
+
+int main(int argc, char const*const*const argv) {
+    // First things first: block ALL signals
+    etdc::BlockAll      ba;
+    // Let's set up the command line parsing
+    int                 message_level = 0;
+    float               timeOut{ -1.0 };
+    std::string         logDirectory{}; // Used if daemonizing: empty = use syslog, otherwise create file in dir
+    etdc::etd_state     serverState;
+    socketoptions_type  sockopts{};
+
+    AP::ArgumentParser  cmd( AP::version( buildinfo() ),
+                             AP::docstring("'ftp' like etransfer server daemon, to be used with etransfer client for "
+                                           "high speed file/directory transfers."),
+                             AP::docstring("addresses are given like (tcp|udt|srt)[6]://[local address][[:#]port]\n"
+                                           "where:\n"
+                                           "    [local address] defaults to all interfaces\n"
+                                           "    [port]          defaults to 4004 (command) or 8008 (data)\n\n"),
+                             AP::docstring("Special fake data source and/or sinks are available:\n"
+                                           "\t/dev/zero:<size>\tmemory data source of <size> bytes, supports [kMG][i]B suffix\n"
+                                           "\t/dev/null\tmemory data sink\n\n"),
+                             AP::docstring("IPv6 coloned-hex format is supported for [local address] by "
+                                           "enclosing the IPv6 address in square brackets: [fe80::1/64%enp4]") );
+
+    // What does our command line look like?
+    //
+    // <prog> --control <address> --data <address>
+    //        --acl <access control list>
+    //        [-h] [--help] [--version]
+    //        [-m <int>]
+    //        [-f] (foreground)
+    //
+    // <address> = [udt|tcp]/[<local IP>]/<port>
+    //             (if <local IP> not given, listen on all interfaces)
+
+    cmd.add( AP::long_name("help"), AP::print_help(),
+             AP::docstring("Print full help and exit successfully") );
+    cmd.add( AP::short_name('h'), AP::print_usage(),
+             AP::docstring("Print short usage and exit successfully") );
+    cmd.add( AP::long_name("version"), AP::print_version(),
+             AP::docstring("Print version and exit successfully") );
+
+    // These are mutex: if foregrounding you can't set a run-as user, and if
+    //                  you've set a run-as user then you cannot not daemonize
+    cmd.addXOR(
+        // -f              run in foreground, i.e. do NOT daemonize
+        AP::option(AP::short_name('f'), AP::store_true(),
+                   AP::docstring("Run in foreground, i.e. do NOT daemonize")),
+        // --run-as <USER> run daemon as user <USER>
+        AP::option(AP::long_name("run-as"), AP::store_value<struct passwd*>(), AP::at_most(1),
+                   AP::docstring("Run daemon under this user name"),
+                   // Default = current user
+                   AP::set_default( ::getpwuid(::geteuid()) ),
+                   // We do not allow unknown user
+                   AP::constrain([](struct passwd* ptr) { return ptr!=nullptr;}, "user name must exist on this system"),
+                   // And we convert user name to passwd entry
+                   AP::convert([](std::string const& username) { return ::getpwnam(username.c_str()); }))
+        );
+
+    // message level: higher = more verbose
+    cmd.add( AP::store_into(message_level), AP::short_name('m'),
+             AP::maximum_value(5), AP::minimum_value(-1), AP::at_most(1),
+             AP::docstring(std::string("Message level - higher = more output. Default: ")+etdc::repr(message_level)) );
+
+    // Allow user to set network related options
+    cmd.add( AP::store_into(sockopts.udtMSS), AP::long_name("udt-mss"), AP::at_most(1),
+             AP::minimum_value( etdc::mss_type{64} ), AP::maximum_value( etdc::mss_type{65536} ), // UDP datagram limits
+             AP::convert([](std::string const& s) { return mss(s); }),
+             AP::docstring(std::string("Set UDT maximum segment size in bytes. Not honoured if data channel is TCP. Default: 1500")) );
+
+    // TCP KeepAlive and friends, if we have'm
+    cmd.add( AP::store_into(serverState.tcpKeepAlive), AP::long_name("tcp-keepalive"), AP::at_most(1),
+             AP::docstring("=true Enable, =false disable SO_KEEPALIVE"), AP::match("(true|false)"),
+             AP::convert([&serverState](std::string const& keepalive) {
+                     serverState.tcpKeepAliveSet = true;
+                     return etdc::so_keepalive{ keepalive=="true" };
+                    })
+            );
+
+#ifdef ETDC_HAVE_TCP_KEEPALIVE
+    // Allow specification of the TCP keepalive tunings
+    cmd.add( AP::store_into(serverState.tcpKeepCnt), AP::long_name("tcp-keepcount"), AP::at_most(1),
+             AP::minimum_value( etdc::tcp_keepcnt{1} ), // can't set to zero or negative value would be weird!
+             AP::docstring("Number of times keepalive probes should be sent, if keep alive is enabled"), 
+             AP::convert([](std::string const& keepcnt) { 
+                     int v;
+                     AP::detail::std_conversion_t()(v, keepcnt);
+                     return etdc::tcp_keepcnt{ v };
+                    } )
+            );
+
+    cmd.add( AP::store_into(serverState.tcpKeepIntvl), AP::long_name("tcp-keepinterval"), AP::at_most(1),
+             AP::minimum_value( etdc::tcp_keepintvl{1} ), // can't set to zero or negative value would be weird!
+             AP::docstring("Number of seconds between keepalive probes, if enabled"), 
+             AP::convert([](std::string const& keepintvl) { 
+                     int v;
+                     AP::detail::std_conversion_t()(v, keepintvl);
+                     return etdc::tcp_keepintvl{ v };
+                    } )
+            );
+
+    cmd.add( AP::store_into(serverState.tcpKeepIdle), AP::long_name("tcp-keepidle"), AP::at_most(1),
+             AP::minimum_value( etdc::tcp_keepidle{1} ), // can't set to zero or negative value would be weird!
+             AP::docstring("Number of seconds connection must be idle before keepalive probes are sent"), 
+             AP::convert([](std::string const& keepidle) { 
+                     int v;
+                     AP::detail::std_conversion_t()(v, keepidle);
+                     return etdc::tcp_keepidle{ v };
+                    } )
+            );
+#endif
+             
+
+
+    // Allow server admin to limit bandwidth on data channels
+    cmd.add( AP::store_into(sockopts.udtBW), AP::long_name("udt-bw"), AP::at_most(1),
+             AP::convert([](std::string const& s) { return max_bw(s); }),
+             AP::docstring("Set UDT maximum bandwidth. Without suffix the number is interpreted as bytes per second. A suffix of 'kMG[Bb]i?ps' is supported: Bps = bytes per second, bps = bits per second; i[Bb]ps is base-1024, [Bb]ps is base-1000. Bits per second will be recomputed and rounded to nearest integer bytes per second lower than the value. Not honoured if data channel is TCP or doing remote-to-remote transfers. Default: unlimited.") );
+
+    cmd.add( AP::store_into(sockopts.srtMSS), AP::long_name("srt-mss"), AP::at_most(1),
+             AP::minimum_value( etdc::mss_type{64} ), AP::maximum_value( etdc::mss_type{65536} ),
+             AP::convert([](std::string const& s) { return mss(s); }),
+             AP::docstring("Set SRT maximum segment size in bytes. Falls back to --udt-mss when omitted. Default: 1500") );
+
+    cmd.add( AP::store_into(sockopts.srtBW), AP::long_name("srt-bw"), AP::at_most(1),
+             AP::convert([](std::string const& s) { return max_bw(s); }),
+             AP::docstring("Set SRT maximum bandwidth. Inherits --udt-bw when not specified. Default: unlimited."),
+             AP::constrain([](etdc::max_bw_type const& v) { return untag(v)==-1 || untag(v)>0; }, "-1 (Inf) or > 0 for set rate") );
+
+    cmd.add( AP::store_into(sockopts.srtBufSize), AP::long_name("srt-buffer"), AP::at_most(1),
+             AP::docstring("Set SRT send/receive buffer size in bytes (SRTO_SNDBUF/SRTO_RCVBUF). No kMG suffix supported. Falls back to --buffer when not provided." ) );
+
+    cmd.add( AP::store_into(sockopts.bufSize), AP::long_name("buffer"), AP::at_most(1),
+             AP::docstring(std::string("Set send/receive buffer size. Default ")+etdc::repr(sockopts.bufSize)) );
+
+    // command servers; we require at least one of 'm
+    cmd.add( AP::store_into(serverState.acl), AP::long_name("acl"), AP::at_most(1),
+             AP::docstring("Read YAML access control configuration from this file.\n\n"
+                          "\t brief YAML format summary:\n"
+                          "\t\tread|write:\n"
+                          "\t\t  default: {allow|deny}: <glob pattern>\n"
+                          "\t\t  allow|deny:\n"
+                          "\t\t    - \"<glob pattern>\"\n"
+                          "\t\t    - ...\n\n"
+                          "\t Patterns honour fnmatch(3) with FNM_PATHNAME.\n"
+                          "\t A pattern ending in \"**\" matches recursively under its prefix.\n"
+                          "\t \"**\" may only appear at the end (e.g. /data/**)."),
+             AP::convert([](std::string const& p) {
+                 ETDCSYSCALL(::access(p.c_str(), R_OK)==0, "ACL file '" << p << "' must exist and be readable");
+                 return std::make_shared<etdc::ACL>( etdc::ACL::readFromFile(p) );
+             }) );
+
+    cmd.add( AP::collect<std::string>(), AP::long_name("command"),
+             // Constraints on the number + form of the argument
+             AP::at_least(1), AP::match(rxURL),
+             // And some useful info
+             AP::docstring("Listen on this(these) address(es) for incoming client control connections") );
+
+    // data servers; we require at least one of those
+    cmd.add( AP::collect<std::string>(), AP::long_name("data"),
+             // Constraints on the number + form of the argument
+             AP::at_least(1), AP::match(rxURL),
+             // And some useful info
+             AP::docstring("Listen on this(these) address(es) for incoming client data connections") );
+
+    // Allow setting a log directory
+    cmd.add( AP::store_into(logDirectory), AP::long_name("log-directory"), AP::at_most(1),
+             AP::docstring("If specified, when daemonizing, create log file in this directory by the name of basename(3) of argv[0] + time-stamp in stead of logging to syslog(3)"),
+             AP::constrain( [](std::string const& p) {
+                                struct stat sb;
+                                ETDCSYSCALL( ::stat(p.c_str(), &sb)==0, "Failed to stat(3) path" );
+                                // Note: the explicitly written out test
+                                //       is due to the fact that access(3)
+                                //       uses the real uid/gid whilst
+                                //       open(2) uses the effective uid/gid
+                                //       of the process. Since we want to
+                                //       O_CREAT a file, we must be sure the
+                                //       directory allows us to do so.
+                                return S_ISDIR(sb.st_mode) && (
+                                        // owner
+                                        (sb.st_uid == geteuid() && (sb.st_mode & (S_IXUSR|S_IWUSR))==(S_IXUSR|S_IWUSR)) ||
+                                        // group
+                                        (sb.st_gid == getegid() && (sb.st_mode & (S_IXGRP|S_IWGRP))==(S_IXGRP|S_IWGRP)) ||
+                                        // other
+                                        (sb.st_mode & (S_IXOTH|S_IWOTH))==(S_IXOTH|S_IWOTH)
+                                    );
+                                }, "Must be directory writable by the effective user/group" ) );
+
+    // Support a timeout period: any transfers inactive for this period will be deleted
+    cmd.add( AP::store_into(timeOut), AP::long_name("inactive-timeout"),
+             AP::docstring("Automatically remove transfers that are inactive for this amount of seconds (Default: never)") );
+
+    // OK Let's check that mother
+    cmd.parse(argc, argv);
+
+    // Set message level based on command line value (or default)
+    etdc::dbglev_fn( message_level );
+
+    // To daemonize or not to daemonize, that is the question.
+    // If we do, we do that by replacing the streambuf of std::cerr by one
+    // that actually stuffs stuff into syslog.
+    auto                oldStreamBuf = etdc::empty_streamsaver_for_stream(std::cerr);
+    const bool          daemonize    = !cmd.get<bool>("f");
+
+    // Drop privileges + assert that after that we are NOT root!
+    // Note: the command line parser has already validated that this is
+    //       not a nullptr; even the default gets tested against that
+    // Note: setresuid(2) is only available on linux (or glibc)
+    //       even though it is the preferred method, I guess we
+    //       stick to POSIX setuid(2) 
+    struct passwd* run_as_ptr = cmd.get<struct passwd*>("run-as");
+ 
+    ETDCASSERT(::setgid(run_as_ptr->pw_gid)==0, "setgid() failed - " << etdc::strerror(errno));
+    ETDCASSERT(::setuid(run_as_ptr->pw_uid)==0, "setuid() failed - " << etdc::strerror(errno));
+    ETDCASSERT(::getuid() && ::geteuid() && ::getgid() && ::getegid(),
+               "Not all privileges were dropped; some rootage is still left!");
+
+    // Oh dear.
+    if( daemonize ) {
+        // We replace std::cerr's streambuf so from this moment on all
+        // output goes to syslog - we are, after all, daemonizing
+        oldStreamBuf = logDirectory.empty() ? etdc::redirect_to_syslog(std::cerr, argv[0]) :
+                                              etdc::redirect_to_file(std::cerr, argv[0], logDirectory);
+
+        do_daemonize();
+    }
+
+    // Fire up the signal thread. 
+    std::promise<int>   killSigPromise;
+    std::future<int>    killSigFuture = killSigPromise.get_future();
+
+    etdc::thread(signal_thread, signallist_type{{SIGHUP, SIGINT, SIGTERM, SIGSEGV}}, std::ref(killSigPromise)).detach();
+
+    // Start threads for the command+data servers
+    const string2socket_type_m mk_cmd ( port(4004), sockopts );
+    const string2socket_type_m mk_data( port(8008), sockopts );
+
+    // Make sure command line options get passed on into the shared state
+    serverState.bufSize = sockopts.bufSize;
+    if( sockopts.udtMSS )
+        serverState.udtMSS = sockopts.udtMSS;
+    if( untag(sockopts.udtBW)>0 )
+        serverState.udtMaxBW = untag(sockopts.udtBW);
+    if( sockopts.srtBufSize )
+        serverState.srtBufSize = sockopts.srtBufSize;
+    if( sockopts.srtMSS )
+        serverState.srtMSS = sockopts.srtMSS;
+    if( untag(sockopts.srtBW)>0 || untag(sockopts.srtBW)==-1 )
+        serverState.srtMaxBW = untag(sockopts.srtBW);
+
+    // data servers first such that the command servers know which data ports are available
+    for(auto&& datasrv: cmd.get<std::list<std::string>>("data")) {
+        auto srv = mk_data( datasrv );
+        // Append the data server to the list of possible data servers
+        serverState.dataaddrs.push_back( srv->getsockname(srv->__m_fd) );
+        serverState.add_thread(&data_server_thread<SIGUSR2>, srv, std::ref(serverState));
+    }
+
+    for(auto&& cmdsrv: cmd.get<std::list<std::string>>("command"))
+        serverState.add_thread(&command_server_thread<SIGUSR1>, mk_cmd(cmdsrv), std::ref(serverState));
+
+    // And add a transfer-monitoring-thread when timeouts are requested
+    // timeOut <= 0 means "disabled"
+    if( timeOut>0.0f )
+        serverState.add_thread(&transfer_monitor_thread, std::ref(serverState), timeOut);
+
+    // Now just wait ..
+    killSigFuture.wait();
+    try {
+        ETDCDEBUG(-1, "main: terminating because of signal#" << killSigFuture.get() << endl);
+    }
+    catch( std::exception const& e ) {
+        ETDCDEBUG(-1, "main: Caught exception " << e.what() << endl);
+    }
+    // Before starting to process cancellations, set the cancel flag
+    std::atomic_store(&serverState.cancelled, true);
+    serverState.condition.notify_all();
+
+    for(auto& cancel: serverState.cancellations)
+        cancel();
+
+    // Proactively mark transfers cancelled so monitor can unwind immediately
+    {
+        etdc::scoped_lock lk(serverState.lock);
+        for(auto& entry : serverState.transfers)
+            entry.second->cancelled.store(true);
+        serverState.condition.notify_all();
+    }
+
+    // Now wait for all worker threads to finish before exiting main
+    {
+        std::unique_lock<std::mutex> lk(serverState.lock);
+        serverState.condition.wait(lk, [&serverState]() { return serverState.n_threads==0; });
+    }
+    ETDCDEBUG(1, "main: terminating." << endl);
+    return 0;
+}
+
+
+
+// New approach to command_server: there's just one (1) thread function:
+//   1. do blocking accept
+//   2. if fd accepted - spawn new thread with self state
+//   3. thread falls through to handle accepted client
+namespace {
+    struct cancellation_context {
+        pthread_t        thread{ ::pthread_self() };
+        etdc::etdc_fdptr client;
+    };
+
+    inline std::shared_ptr<cancellation_context> make_cancel_context(etdc::etdc_fdptr seed) {
+        auto ctx = std::make_shared<cancellation_context>();
+        std::atomic_store(&ctx->client, std::move(seed));
+        return ctx;
+    }
+}
+
+template <int KillSignal>
+void command_server_thread(etdc::etdc_fdptr pServer, etdc::etd_state& shared_state) {
+    // First things first: push ourselves on the list of cancellations
+    // But we'll unblock a signal for that such that we can let the
+    // cancellation function send a signal to us :D
+    etdc::UnBlock                   s({KillSignal});
+    auto                            cancelCtx = make_cancel_context(pServer);
+    etdc::cancellist_type::iterator ourCancellation;
+
+    etdc::install_handler(dummy_signal_handler, {KillSignal});
+
+    {
+        // used scoped lock to add ourselves to the list of cancellations
+        etdc::scoped_lock lk(shared_state.lock);
+        ourCancellation = shared_state.cancellations.insert( shared_state.cancellations.end(),
+                [cancelCtx](void) {
+                    // Atomically load the file descriptor we need to cancel
+                    etdc::etdc_fdptr  myFD = std::atomic_load(&cancelCtx->client);
+
+                    if( myFD ) {
+                        ETDCDEBUG(2, "Cancellation fn/signalling thread for command fd=" << myFD->__m_fd << std::endl);
+                        myFD->close(myFD->__m_fd);
+                    } else {
+                        ETDCDEBUG(3, "Cancellation fn/signalling thread for command - no active client" << std::endl);
+                    }
+                    if( int rc = ::pthread_kill(cancelCtx->thread, KillSignal) )
+                        ETDCDEBUG(1, "Cancellation fn/pthread_kill(command) failed - " << rc << std::endl);
+                }
+               );
+    }
+
+    try {
+        // Now we can get on with our lives
+        if( !std::atomic_load(&shared_state.cancelled) )
+            std::atomic_store(&cancelCtx->client, pServer->accept(pServer->__m_fd));
+
+        // OK we accepted a client. Now spawn a new acceptor - unless we're calling it a day
+        if( !std::atomic_load(&shared_state.cancelled) )
+            shared_state.add_thread(&command_server_thread<KillSignal>, pServer, std::ref(shared_state));
+
+        etdc::etdc_fdptr pClient = std::atomic_load(&cancelCtx->client);
+        if( !pClient )
+            throw std::runtime_error("No incoming command client?!");
+
+        // Now we fall through handling the client
+        auto peernm = pClient->getpeername(pClient->__m_fd);
+        ETDCDEBUG(2, "Incoming COMMAND from " << peernm << " [local " << pClient->getsockname(pClient->__m_fd) << "]" << endl);
+
+        // Command sockets typically do small messages so we set tcp_nodelay
+        // (if the protocol is TCP-like that is!)
+        if( get_protocol(peernm).find("tcp")!=std::string::npos ) {
+            etdc::setsockopt(pClient->__m_fd, etdc::tcp_nodelay{true});
+
+            // The TCP Keepalive options
+            // tcpKeepAliveSet will be set to true if a tcpKeepAlive
+            // setting is requested from the command line
+            if( shared_state.tcpKeepAliveSet )
+                etdc::setsockopt( pClient->__m_fd, shared_state.tcpKeepAlive );
+        
+#ifdef ETDC_HAVE_TCP_KEEPALIVE
+            // Only set TCP keepalive tunings if enabled on the socket
+            if( shared_state.tcpKeepAlive ) {
+                // Only override the values that have been changed from their
+                // default of 0 (the command line only allows values >=1 for these parameters)
+                if( untag(shared_state.tcpKeepCnt) ) {
+                    ETDCDEBUG(4, "Setting client connection TCP_KEEPCNT to " << shared_state.tcpKeepCnt << std::endl);
+                    etdc::setsockopt( pClient->__m_fd, shared_state.tcpKeepCnt );
+                }
+                if( untag(shared_state.tcpKeepIntvl) ) {
+                    ETDCDEBUG(4, "Setting client connection TCP_KEEPINTVL to " << shared_state.tcpKeepIntvl << std::endl);
+                    etdc::setsockopt( pClient->__m_fd, shared_state.tcpKeepIntvl );
+                }
+                if( untag(shared_state.tcpKeepIdle) ) {
+                    ETDCDEBUG(4, "Setting client connection TCP_KEEPIDLE to " << shared_state.tcpKeepIdle << std::endl);
+                    etdc::setsockopt( pClient->__m_fd, shared_state.tcpKeepIdle );
+                }
+            }
+#endif
+        }
+
+        dbgMap[get_protocol(peernm)](pClient, "client"); 
+
+        // Fall into ETDServerWrapper
+        etdc::ETDServerWrapper(pClient, std::ref(shared_state));
+    }
+    catch( std::exception const& e ) {
+        ETDCDEBUG(1, "command server thread got exception: " << e.what() << std::endl);
+    }
+    catch( ... ) {
+        ETDCDEBUG(1, "command server thread got unknown exception" << std::endl);
+    }
+    std::atomic_store(&cancelCtx->client, etdc::etdc_fdptr{});
+    if( !std::atomic_load(&shared_state.cancelled) ) {
+        etdc::scoped_lock  lk(shared_state.lock);
+        shared_state.cancellations.erase( ourCancellation );
+    }
+    ETDCDEBUG(1, "command server thread terminated" << endl);
+    return;
+}
+
+// We repeat for data_server threads
+template <int KillSignal>
+void data_server_thread(etdc::etdc_fdptr pServer, etdc::etd_state& shared_state) {
+    // First things first: push ourselves on the list of cancellations
+    // But we'll unblock a signal for that such that we can let the
+    // cancellation function send a signal to us :D
+    etdc::UnBlock                   s({KillSignal});
+    auto                            cancelCtx = make_cancel_context(pServer);
+    etdc::cancellist_type::iterator ourCancellation;
+
+    etdc::install_handler(dummy_signal_handler, {KillSignal});
+
+    {
+        // used scoped lock to add ourselves to the list of cancellations
+        etdc::scoped_lock lk(shared_state.lock);
+        ourCancellation = shared_state.cancellations.insert( shared_state.cancellations.end(),
+                // cancellation function void(void):
+                [cancelCtx](void) {
+                    // Atomically load the shared pointer
+                    // http://en.cppreference.com/w/cpp/memory/shared_ptr/atomic
+                    etdc::etdc_fdptr  myFD = std::atomic_load(&cancelCtx->client);
+
+                    if( myFD ) {
+                        ETDCDEBUG(2, "Cancellation fn/signalling thread for data fd=" << myFD->__m_fd << std::endl);
+                        myFD->close(myFD->__m_fd);
+                    } else {
+                        ETDCDEBUG(3, "Cancellation fn/signalling thread for data - no active client" << std::endl);
+                    }
+                    if( int rc = ::pthread_kill(cancelCtx->thread, KillSignal) )
+                        ETDCDEBUG(1, "Cancellation fn/pthread_kill(data) failed - " << rc << std::endl);
+                }
+            );
+    }
+
+    try {
+        // Now we can get on with our lives - atomically store the client's
+        // file descriptor as soon as accept() returns
+        if( !std::atomic_load(&shared_state.cancelled) )
+            std::atomic_store(&cancelCtx->client, pServer->accept(pServer->__m_fd));
+
+        // OK we accepted a client. Now spawn a new acceptor - unless we're calling it a day
+        if( !std::atomic_load(&shared_state.cancelled) )
+            shared_state.add_thread(&data_server_thread<KillSignal>, pServer, std::ref(shared_state));
+
+        etdc::etdc_fdptr pClient = std::atomic_load(&cancelCtx->client);
+        if( !pClient )
+            throw std::runtime_error("No incoming data client?!");
+        // Now we fall through handling the client
+        auto peernm = pClient->getpeername(pClient->__m_fd);
+        ETDCDEBUG(2, "Incoming DATA from " << peernm << " [local " << pClient->getsockname(pClient->__m_fd) << "]" << endl);
+
+        // This is data connection so let's set a big sokkitbuffer
+        // Do not *assert* it - e.g. on Mac OSX (and maybe other *BSDs)
+        // asking for SO_RCVBUF > maximum will /fail/ and that's not our
+        // intent. We'd *like* to have a bigr 'n bettr SO_RCVBUF if you
+        // pretty please with sugar on top. But if we can't have it then
+        // that's not an error.
+        // Note: for UDT data channels we have already set RCVBUF
+        //if( get_protocol(peernm).find("tcp")!=std::string::npos )
+        //    etdc::setsockopt(pClient->__m_fd, etdc::so_rcvbuf{32*1024*1024}, etdc::so_sndbuf{32*1024*1024});
+#if 0
+        else
+            // udt
+            etdc::setsockopt(pClient->__m_fd, etdc::udt_sndbuf{32*1024*1024}, etdc::udt_rcvbuf{32*1024*1024},
+                                              etdc::udp_sndbuf{32*1024*1024}, etdc::udp_rcvbuf{32*1024*1024});
+#endif
+        dbgMap[get_protocol(peernm)](pClient, "client");
+        etdc::ETDDataServer(pClient, std::ref(shared_state));
+    }
+    catch( std::exception const& e ) {
+        ETDCDEBUG(1, "data server thread got exception: " << e.what() << std::endl);
+    }
+    catch( ... ) {
+        ETDCDEBUG(1, "data server thread got unknown exception" << std::endl);
+    }
+    std::atomic_store(&cancelCtx->client, etdc::etdc_fdptr{});
+    // Deregister our cancellation - only if we weren't being cancelled.
+    if( !std::atomic_load(&shared_state.cancelled) ) {
+        etdc::scoped_lock  lk(shared_state.lock);
+        shared_state.cancellations.erase( ourCancellation );
+    }
+    ETDCDEBUG(1, "data server thread terminated" << endl);
+    return;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//   Daemonize as per section 13.3 in Stevens' and Rago's
+//   "Advanced Programming in the UNIX Environment"
+//
+//   Mods:
+//   1.) do not do the sigaction for SIGHUP - we already made main()
+//       terminate on reception of SIGHUP, SIGTERM, SIGSTOP and SIGSEGV
+//
+///////////////////////////////////////////////////////////////////////////////////////////////////
+void do_daemonize( void ) {
+    pid_t         pid;
+    struct rlimit rl;
+
+    // Clear file creation mask - no need to do any assertions
+    ::umask( 0 );
+
+    // Get max. number of file descriptors
+    ETDCASSERT(::getrlimit(RLIMIT_NOFILE, &rl)==0, "Failed to get max number of file descriptors - " << etdc::strerror(errno));
+    // first fork
+    ETDCASSERT((pid=::fork())>=0, "Failed to fork(1) - " << etdc::strerror(errno));
+    // parent exits successfully
+    if( pid>0 )
+        ::exit(0);
+    // child becomes session leader
+    ETDCASSERT(::setsid()!=static_cast<pid_t>(-1), "Failed to become session leader - " << etdc::strerror(errno));
+    // here Stevens et al ignore SIGHUP which we don't [see Mod 2. above]
+    // ...
+    // 2nd fork
+    ETDCASSERT((pid=::fork())>=0, "Failed to fork(2) - " << etdc::strerror(errno));
+    // parent exits successfully
+    if( pid>0 )
+        ::exit(0);
+    // child continues
+    ETDCASSERT(::chdir("/")==0, "Failed to change directory to '/' - " << etdc::strerror(errno));
+
+    // close all file descriptors
+    if( rl.rlim_max==RLIM_INFINITY ) {
+        const long scopenmax = ::sysconf(_SC_OPEN_MAX);
+        // if sysconf returns -1 it could mean either of two things:
+        // 1) failure
+        // 2) still no known limit
+        // either way, we still don't know how many file descriptors to
+        // close ...
+        // Both ternary branches forced to rlim_t (the destination's
+        // unsigned type) so the ?:-expression has a single signedness
+        // and -Wsign-conversion doesn't fire. The ==-1 test already
+        // guarantees scopenmax is non-negative on the taken branch.
+        rl.rlim_max = (scopenmax==-1) ? rlim_t{1024} : static_cast<rlim_t>(scopenmax);
+    }
+    // do not close stderr - we've redirected that to syslog
+    for(decltype(rl.rlim_max) i = 0; i<rl.rlim_max; i++)
+        if( i!=2 )
+            ::close( (int)i );
+    // Getting there ...
+    // attach stdin, stdout  to /dev/null
+    int fd0, fd1;
+
+    fd0 = ::open("/dev/null", O_RDWR);
+    fd1 = ::dup(0);
+    ETDCASSERT(fd0==0 && fd1==1, "Something went wrong attaching stdin, stdout to devnull");
+}
