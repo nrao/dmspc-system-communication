@@ -20,7 +20,9 @@ start)
 
 rebuild)
     echo "Rebuilding development environment..."
-    # Take down kafka containers
+    # Take down kafka + sim containers
+    docker compose stop $KAFKA_SERVICES
+    docker compose rm -f $KAFKA_SERVICES
     docker compose stop $KAFKA_SERVICES
     docker compose rm -f $KAFKA_SERVICES
     # Take down the rest of the containers
