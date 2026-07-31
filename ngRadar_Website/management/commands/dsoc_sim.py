@@ -8,9 +8,7 @@ import io
 from ngRadar_Website.models.models import gbtEvent, dsocEvent
 from ngRadar_Website.enums import Stations
 from ngRadar_Website.utils import latency_calc, bootstrap, consume, create_s3_client, upload_seaweedfs
-from botocore.exceptions import EndpointConnectionError, ClientError
-import os
-import time
+from pathlib import Path
 
 
 """
@@ -118,12 +116,27 @@ def process_msg(msg, producer_topic=None, producer_config=None):
     data = DB_columns(gbt_data)
     data['latency_ms'] = dsoc_latency
 
+    # Should we receive the etransfer here?
+    incoming = Path("/dsoc/incoming")
+    print(f"Scanning {incoming}")
+
+    for f in incoming.iterdir():
+        if f.is_file():
+            print(f"\nFound: {f.name}")
+            print(f"Size: {f.stat().st_size} bytes")
+
+            try:
+                print("Contents:")
+                print(f.read_text())
+            except UnicodeDecodeError:
+                print("(Binary file)")
+
     # 1. Gather data and create the image file and dsoc_uuid first:
     object_id, target, tx_waveform, event_time = gbt_data
     image_file, num_bytes = create_img(tx_waveform)
     dsoc_uuid = str(uuid.uuid4())
 
-        # 2. Upload the image to SeaweedFS using your pre-generated uuid
+    # 2. Upload the image to SeaweedFS using your pre-generated uuid
     image_key = save_image_to_seaweedfs(target, image_file, dsoc_uuid)
 
     # 3. Inject the UUID and image_key directly into the payload data

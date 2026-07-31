@@ -15,7 +15,10 @@ DATE=$(shell date '+%d-%b-%Y %Hh%Mm%Ss')
 # See docs/checked-conversions-plan.md for a sketch of how we'd revisit
 # this with throwing checked conversions (etdc::narrow) if we ever want
 # real bounds-checking at those boundaries.
-BASEOPT=-fPIC $(OPT) -Wall -W -Werror -Wextra -pedantic -pedantic-errors -DB2B=$(B2B) -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -D__STDC_FORMAT_MACROS -Wcast-qual -Wwrite-strings -Wredundant-decls -Wfloat-equal -Wshadow -Wundef -D_FILE_OFFSET_BITS=64
+
+# GCC 14+ emits false-positive -Warray-bounds diagnostics in std::regex.
+# Keep the warning visible but don't fail the build.
+BASEOPT=-fPIC $(OPT) -Wall -W -Werror -Wno-error=array-bounds -Wextra -pedantic -pedantic-errors -DB2B=$(B2B) -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -D__STDC_FORMAT_MACROS -Wcast-qual -Wwrite-strings -Wredundant-decls -Wfloat-equal -Wshadow -Wundef -D_FILE_OFFSET_BITS=64
 
 CCOPT=$(BASEOPT) -Wbad-function-cast -Wstrict-prototypes
 CXXOPT=$(BASEOPT) -std=c++11 
@@ -52,9 +55,11 @@ endif
 #### The include path(s)
 INCD+=-I$(shell pwd)/src -I$(shell pwd)/argparse11
 
+# Removing -lnls flag from Linux as its a legacy library
+# and usually not needed. Debian doesn't need this.
 PLATFORMLIBS=
 ifeq ($(shell uname),Linux)
-	PLATFORMLIBS=-lm -lnsl -lrt -ldl
+	PLATFORMLIBS=-lm -lrt -ldl
 endif
 
 ifeq ($(shell uname),SunOS)

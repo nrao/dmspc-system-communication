@@ -20,7 +20,7 @@ services:
           condition: service_healthy
     volumes:
       - .:/service
-      - ngrok_env:/out
+      # - ngrok_env:/out
     ports:
       - 8000:8000
     networks:
@@ -75,72 +75,134 @@ services:
     networks:
       - ngradar_website_network
 
-  ngrok:
-    image: ngrok/ngrok:latest
+  # ngrok:
+  #   image: ngrok/ngrok:latest
+  #   profiles: ["kafka"]
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+  #   command: tcp broker:9092 --log stdout
+  #   ports:
+  #     - "4040:4040"
+  #   networks:
+  #     - ngradar_website_network
+
+
+# a one-shot init service that creates the 3 kafka topics before the broker starts
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.1
+    depends_on:
+      kafka-broker:
+        condition: service_healthy
     profiles: ["kafka"]
-    env_file:
-      - .env
-    environment:
-      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
-    command: tcp broker:9092 --log stdout
-    ports:
-      - "4040:4040"
     networks:
       - ngradar_website_network
+    entrypoint:
+    - /bin/sh
+    - -ec
+    - |
+      echo "Creating Kafka topics..."
+
+      kafka-topics --bootstrap-server kafka-broker:29092 \
+        --create --if-not-exists \
+        --topic user_input \
+        --partitions 3 \
+        --replication-factor 1
+
+      kafka-topics --bootstrap-server kafka-broker:29092 \
+        --create --if-not-exists \
+        --topic GBT_data \
+        --partitions 1 \
+        --replication-factor 1
+
+      kafka-topics --bootstrap-server kafka-broker:29092 \
+        --create --if-not-exists \
+        --topic VLBA_data \
+        --partitions 1 \
+        --replication-factor 1
+
+      echo "Kafka topic initialization complete."
+    restart: "no"
     
 
-  broker:
+  kafka-broker:
     user: "0:0"
     image: confluentinc/cp-kafka:7.5.1
     profiles: ["kafka"]
     depends_on:
       - zookeeper
-      - ngrok
-    volumes:
-      - ngrok_env:/out
+      # - ngrok
+    # volumes:
+    #   - ngrok_env:/out
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENERS: DOCKER://broker:29092, NGROK://broker:9092
-      KAFKA_ADVERTISED_LISTENERS: DOCKER://broker:29092
-      KAFKA_INTER_BROKER_LISTENER_NAME: DOCKER
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: DOCKER:PLAINTEXT,NGROK:PLAINTEXT
+
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-broker:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+      # Required for a one-broker development cluster
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    # environment:
+    #   KAFKA_BROKER_ID: 1
+    #   KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+    #   KAFKA_LISTENERS: DOCKER://broker:29092, NGROK://broker:9092
+    #   KAFKA_ADVERTISED_LISTENERS: DOCKER://broker:29092
+    #   KAFKA_INTER_BROKER_LISTENER_NAME: DOCKER
+    #   KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: DOCKER:PLAINTEXT,NGROK:PLAINTEXT
+    #   KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    #   KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    #   KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    #   KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
 
-      KAFKA_MESSAGE_MAX_BYTES: 5000000
-      KAFKA_REPLICA_FETCH_MAX_BYTES: 5000000
-      KAFKA_MAX_REQUEST_SIZE: 5000000
-      KAFKA_SOCKET_REQUEST_MAX_BYTES: 5000000
-      KAFKA_LOG_SEGMENT_BYTES: 1073741824 # Controls how much data can be written to the log segment at once
+    #   KAFKA_MESSAGE_MAX_BYTES: 5000000
+    #   KAFKA_REPLICA_FETCH_MAX_BYTES: 5000000
+    #   KAFKA_MAX_REQUEST_SIZE: 5000000
+    #   KAFKA_SOCKET_REQUEST_MAX_BYTES: 5000000
+    #   KAFKA_LOG_SEGMENT_BYTES: 1073741824 # Controls how much data can be written to the log segment at once
 
-      KAFKA_LOG_RETENTION_BYTES: 10737418240
-      KAFKA_LOG_RETENTION_MS: 604800000
+    #   KAFKA_LOG_RETENTION_BYTES: 10737418240
+    #   KAFKA_LOG_RETENTION_MS: 604800000
     networks:
       - ngradar_website_network
-    entrypoint: 
-      - /bin/sh 
-      - -c 
-      - |
-        echo "Waiting for ngrok tunnel to be created"
-        while : ; do
-          curl_status=$$(curl -s -o /dev/null -w %{http_code} http://ngrok:4040/api/tunnels/command_line)
-          echo -e $$(date) "\tTunnels API HTTP state: " $$curl_status " (waiting for 200)"
-          if [ $$curl_status -eq 200 ] ; then
-            break
-          fi
-          sleep 5 
-        done
-        echo "ngrok tunnel is up"
-        NGROK_LISTENER=$(curl -s  http://ngrok:4040/api/tunnels/command_line | grep -Po '"public_url":.*?[^\\]",' | cut -d':' -f2- | tr -d ',"' | sed 's/tcp:\/\//NGROK:\/\//g')
-        echo $$NGROK_LISTENER
-        export KAFKA_ADVERTISED_LISTENERS="$$KAFKA_ADVERTISED_LISTENERS, $$NGROK_LISTENER"
-        echo "KAFKA_ADVERTISED_LISTENERS is set to " $$KAFKA_ADVERTISED_LISTENERS
-        NGROK_BOOTSTRAP=$(curl -s  http://ngrok:4040/api/tunnels/command_line | grep -Po '"public_url":.*?[^\\]",' | cut -d':' -f2- | tr -d ',"' | sed 's/tcp:\/\///')
-        echo "BOOTSTRAP_SERVER=$$NGROK_BOOTSTRAP" > /out/ngrok_endpoint.env
-        /etc/confluent/docker/run
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-topics --bootstrap-server kafka-broker:29092 --list >/dev/null 2>&1",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    # entrypoint: 
+    #   - /bin/sh 
+    #   - -c 
+    #   - |
+    #     echo "Waiting for ngrok tunnel to be created"
+    #     while : ; do
+    #       curl_status=$$(curl -s -o /dev/null -w %{http_code} http://ngrok:4040/api/tunnels/command_line)
+    #       echo -e $$(date) "\tTunnels API HTTP state: " $$curl_status " (waiting for 200)"
+    #       if [ $$curl_status -eq 200 ] ; then
+    #         break
+    #       fi
+    #       sleep 5 
+    #     done
+    #     echo "ngrok tunnel is up"
+    #     NGROK_LISTENER=$(curl -s  http://ngrok:4040/api/tunnels/command_line | grep -Po '"public_url":.*?[^\\]",' | cut -d':' -f2- | tr -d ',"' | sed 's/tcp:\/\//NGROK:\/\//g')
+    #     echo $$NGROK_LISTENER
+    #     export KAFKA_ADVERTISED_LISTENERS="$$KAFKA_ADVERTISED_LISTENERS, $$NGROK_LISTENER"
+    #     echo "KAFKA_ADVERTISED_LISTENERS is set to " $$KAFKA_ADVERTISED_LISTENERS
+    #     NGROK_BOOTSTRAP=$(curl -s  http://ngrok:4040/api/tunnels/command_line | grep -Po '"public_url":.*?[^\\]",' | cut -d':' -f2- | tr -d ',"' | sed 's/tcp:\/\///')
+    #     echo "BOOTSTRAP_SERVER=$$NGROK_BOOTSTRAP" > /out/ngrok_endpoint.env
+    #     /etc/confluent/docker/run
     
 
   kafka-ui:
@@ -150,37 +212,37 @@ services:
       - "8082:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker:29092
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka-broker:29092
     depends_on:
-      - broker
+      - kafka-broker
     networks:
       - ngradar_website_network
 
-  ngrok-writer:
-    build: .
-    env_file:
-      - .env
-    depends_on:
-      - postgres
-      - broker
-    volumes:
-      - .:/service
-      - ngrok_env:/out
-    networks:
-      - ngradar_website_network
-    profiles: ["kafka"]
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        rm -f /out/ngrok_endpoint.env
-        echo "Finding ngrok endpoint..."
-        while [ ! -f /out/ngrok_endpoint.env ]; do sleep 2; done
-        while [ ! -s /out/ngrok_endpoint.env ]; do sleep 1; done
-        echo "----- Using ngrok endpoint: -----"
-        cat /out/ngrok_endpoint.env
-        echo "------------------------------------"
-        python manage.py ngrok_writer
+  # ngrok-writer:
+  #   build: .
+  #   env_file:
+  #     - .env
+  #   depends_on:
+  #     - postgres
+  #     - broker
+  #   volumes:
+  #     - .:/service
+  #     - ngrok_env:/out
+  #   networks:
+  #     - ngradar_website_network
+  #   profiles: ["kafka"]
+  #   entrypoint:
+  #     - /bin/sh
+  #     - -c
+  #     - |
+  #       rm -f /out/ngrok_endpoint.env
+  #       echo "Finding ngrok endpoint..."
+  #       while [ ! -f /out/ngrok_endpoint.env ]; do sleep 2; done
+  #       while [ ! -s /out/ngrok_endpoint.env ]; do sleep 1; done
+  #       echo "----- Using ngrok endpoint: -----"
+  #       cat /out/ngrok_endpoint.env
+  #       echo "------------------------------------"
+  #       python manage.py ngrok_writer
 
 
 #==========================
@@ -192,26 +254,36 @@ services:
     env_file:
       - .env
     depends_on:
-      - postgres
-      - broker
+      postgres:
+        condition: service_healthy
+      kafka-broker:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
     volumes:
       - .:/service
-      - ngrok_env:/out
+      # - ngrok_env:/out
     networks:
       - ngradar_website_network
     profiles: ["kafka"]
+    environment:
+      BOOTSTRAP_SERVER: kafka-broker:29092
     entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        rm -f /out/ngrok_endpoint.env
-        echo "Finding ngrok endpoint..."
-        while [ ! -f /out/ngrok_endpoint.env ]; do sleep 2; done
-        while [ ! -s /out/ngrok_endpoint.env ]; do sleep 1; done
-        echo "----- Using ngrok endpoint: -----"
-        cat /out/ngrok_endpoint.env
-        echo "------------------------------------"
-        python manage.py gbt_sim
+        - python
+        - manage.py
+        - gbt_sim
+    # entrypoint:
+    #   - /bin/sh
+    #   - -c
+    #   - |
+    #     # rm -f /out/ngrok_endpoint.env
+    #     # echo "Finding ngrok endpoint..."
+    #     # while [ ! -f /out/ngrok_endpoint.env ]; do sleep 2; done
+    #     # while [ ! -s /out/ngrok_endpoint.env ]; do sleep 1; done
+    #     # echo "----- Using ngrok endpoint: -----"
+    #     # cat /out/ngrok_endpoint.env
+    #     # echo "------------------------------------"
+    #     python manage.py gbt_sim
 
 
 
@@ -220,28 +292,41 @@ services:
     env_file:
       - .env
     depends_on:
-      - postgres
-      - broker
-      - seaweedfs
+      dsoc-volume-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      kafka-broker:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      seaweedfs:
+        condition: service_started
     volumes:
       - .:/service
-      - ngrok_env:/out
-      - dsoc_transfer:/incoming
+      # - ngrok_env:/out
+      - dsoc_transfer:/dsoc/incoming
     networks:
       - ngradar_website_network
     profiles: ["kafka"]
+    environment:
+      BOOTSTRAP_SERVER: kafka-broker:29092
     entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        rm -f /out/ngrok_endpoint.env
-        echo "Finding ngrok endpoint..."
-        while [ ! -f /out/ngrok_endpoint.env ]; do sleep 2; done
-        while [ ! -s /out/ngrok_endpoint.env ]; do sleep 1; done
-        echo "----- Using ngrok endpoint: -----"
-        cat /out/ngrok_endpoint.env
-        echo "------------------------------------"
-        python manage.py dsoc_sim
+        - python
+        - manage.py
+        - dsoc_sim
+    # entrypoint:
+    #   - /bin/sh
+    #   - -c
+    #   - |
+    #     # rm -f /out/ngrok_endpoint.env
+    #     # echo "Finding ngrok endpoint..."
+    #     # while [ ! -f /out/ngrok_endpoint.env ]; do sleep 2; done
+    #     # while [ ! -s /out/ngrok_endpoint.env ]; do sleep 1; done
+    #     # echo "----- Using ngrok endpoint: -----"
+    #     # cat /out/ngrok_endpoint.env
+    #     # echo "------------------------------------"
+    #     python manage.py dsoc_sim
   
   
 
@@ -250,34 +335,45 @@ services:
       env_file:
         - .env
       depends_on:
-        - postgres
-        - broker
+        postgres:
+          condition: service_healthy
+        kafka-broker:
+          condition: service_healthy
+        kafka-init:
+          condition: service_completed_successfully
+        etr_daemon:
+          condition: service_started
       volumes:
         - .:/service
-        - ngrok_env:/out
-        - vlba_transfer:/transfer
+        # - ngrok_env:/out
       networks:
         - ngradar_website_network
       profiles: ["kafka"]
+      environment:
+        ETD_DESTINATION: "etr_daemon:/dsoc/incoming/"
+        BOOTSTRAP_SERVER: kafka-broker:29092
       entrypoint:
-        - /bin/sh
-        - -c
-        - |
-          rm -f /out/ngrok_endpoint.env
-          echo "Finding ngrok endpoint..."
-          while [ ! -f /out/ngrok_endpoint.env ]; do sleep 2; done
-          while [ ! -s /out/ngrok_endpoint.env ]; do sleep 1; done
-          echo "----- Using ngrok endpoint: -----"
-          cat /out/ngrok_endpoint.env
-          echo "------------------------------------"
-          python manage.py vlba_sim
+        - python
+        - manage.py
+        - vlba_sim
+      # entrypoint:
+      #   - /bin/sh
+      #   - -c
+      #   - |
+      #     rm -f /out/ngrok_endpoint.env
+      #     echo "Finding ngrok endpoint..."
+      #     while [ ! -f /out/ngrok_endpoint.env ]; do sleep 2; done
+      #     while [ ! -s /out/ngrok_endpoint.env ]; do sleep 1; done
+      #     echo "----- Using ngrok endpoint: -----"
+      #     cat /out/ngrok_endpoint.env
+      #     echo "------------------------------------"
+      #     python manage.py vlba_sim
+
 
 
 #==========================
 # storage containers:
 #==========================
-
-
   seaweedfs:
     build: 
       context: .
@@ -319,35 +415,52 @@ services:
 #==========================
 # etransfer containers:
 #==========================
-etr_client:
-  build:
-    context: ./etr-client
-  depends_on:
-    - vlba
-    - etr_daemon
-  networks:
-    - ngradar_website_network
-  volumes:
-    - vlba_transfer:/transfer
+# a one-shot init service that creates the volume before etd starts
+  dsoc-volume-init:
+    image: alpine:3.20
+    profiles: ["kafka"]
+    user: "0:0"
+    volumes:
+      - dsoc_transfer:/dsoc/incoming
+    command:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /dsoc/incoming
+        chown -R 33:33 /dsoc/incoming
+        chmod 775 /dsoc/incoming
+
+  etr_daemon:
+    build: .
+    profiles: ["kafka"]
+    user: "33:33"   # non root user: www-data
+    depends_on:
+      dsoc-volume-init:
+        condition: service_completed_successfully
+    networks:
+      - ngradar_website_network
+    volumes:
+      - dsoc_transfer:/dsoc/incoming
+    command:
+      - etd
+      - -f
+      - --command
+      - tcp://:4004
+      - --data
+      - srt://:8008
 
 
-etr_daemon:
-  build:
-    context: ./etr-daemon
-  depends_on:
-    - dsoc
-  networks:
-    - ngradar_website_network
-  volumes:
-    - dsoc_transfer:/incoming
+
+#==========================
+# end of containers
+#==========================
 
 
 volumes:
   postgres_data:
   staging_dump:
   seaweed_data:
-  ngrok_env:
-  vlba_transfer:
+  # ngrok_env:
   dsoc_transfer:
 
 networks:

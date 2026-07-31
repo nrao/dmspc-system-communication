@@ -46,6 +46,7 @@
 #include <sys/stat.h>
 //#include <uuid/uuid.h>
 #include <sys/resource.h>
+#include <grp.h>
 
 
 // Some handy shorthands
@@ -403,20 +404,45 @@ int main(int argc, char const*const*const argv) {
 
     // These are mutex: if foregrounding you can't set a run-as user, and if
     //                  you've set a run-as user then you cannot not daemonize
-    cmd.addXOR(
-        // -f              run in foreground, i.e. do NOT daemonize
+    // cmd.addXOR(
+    //     // -f              run in foreground, i.e. do NOT daemonize
+    //     AP::option(AP::short_name('f'), AP::store_true(),
+    //                AP::docstring("Run in foreground, i.e. do NOT daemonize")),
+    //     // --run-as <USER> run daemon as user <USER>
+    //     AP::option(AP::long_name("run-as"), AP::store_value<struct passwd*>(), AP::at_most(1),
+    //                AP::docstring("Run daemon under this user name"),
+    //                // Default = current user
+    //                AP::set_default( ::getpwuid(::geteuid()) ),
+    //                // We do not allow unknown user
+    //                AP::constrain([](struct passwd* ptr) { return ptr!=nullptr;}, "user name must exist on this system"),
+    //                // And we convert user name to passwd entry
+    //                AP::convert([](std::string const& username) { return ::getpwnam(username.c_str()); }))
+    //     );
+
+
+    // Foreground mode (-f) is useful for containers.
+    // It may be combined with --run-as so the process stays attached
+    // to PID 1 while still dropping privileges.
+
+    // -f run in foreground (do NOT daemonize)
+    cmd.add(
         AP::option(AP::short_name('f'), AP::store_true(),
-                   AP::docstring("Run in foreground, i.e. do NOT daemonize")),
-        // --run-as <USER> run daemon as user <USER>
+                AP::docstring("Run in foreground, i.e. do NOT daemonize"))
+    );
+
+    // --run-as <USER>
+    cmd.add(
         AP::option(AP::long_name("run-as"), AP::store_value<struct passwd*>(), AP::at_most(1),
-                   AP::docstring("Run daemon under this user name"),
-                   // Default = current user
-                   AP::set_default( ::getpwuid(::geteuid()) ),
-                   // We do not allow unknown user
-                   AP::constrain([](struct passwd* ptr) { return ptr!=nullptr;}, "user name must exist on this system"),
-                   // And we convert user name to passwd entry
-                   AP::convert([](std::string const& username) { return ::getpwnam(username.c_str()); }))
-        );
+                AP::docstring("Run daemon under this user name"),
+                AP::set_default(::getpwnam("www-data")),
+                // AP::set_default(::getpwuid(::geteuid())),
+                AP::constrain([](struct passwd* ptr) {
+                    return ptr != nullptr;
+                }, "user name must exist on this system"),
+                AP::convert([](std::string const& username) {
+                    return ::getpwnam(username.c_str());
+                }))
+    );
 
     // message level: higher = more verbose
     cmd.add( AP::store_into(message_level), AP::short_name('m'),
@@ -553,6 +579,12 @@ int main(int argc, char const*const*const argv) {
 
     // OK Let's check that mother
     cmd.parse(argc, argv);
+    std::cerr
+        << "uid=" << getuid()
+        << " euid=" << geteuid()
+        << " gid=" << getgid()
+        << " egid=" << getegid()
+        << std::endl;
 
     // Set message level based on command line value (or default)
     etdc::dbglev_fn( message_level );
@@ -560,8 +592,10 @@ int main(int argc, char const*const*const argv) {
     // To daemonize or not to daemonize, that is the question.
     // If we do, we do that by replacing the streambuf of std::cerr by one
     // that actually stuffs stuff into syslog.
-    auto                oldStreamBuf = etdc::empty_streamsaver_for_stream(std::cerr);
-    const bool          daemonize    = !cmd.get<bool>("f");
+    // auto                oldStreamBuf = etdc::empty_streamsaver_for_stream(std::cerr);
+
+    // etd containers will always run in foreground for this prototype
+    // const bool          daemonize    = false;
 
     // Drop privileges + assert that after that we are NOT root!
     // Note: the command line parser has already validated that this is
@@ -569,22 +603,73 @@ int main(int argc, char const*const*const argv) {
     // Note: setresuid(2) is only available on linux (or glibc)
     //       even though it is the preferred method, I guess we
     //       stick to POSIX setuid(2) 
-    struct passwd* run_as_ptr = cmd.get<struct passwd*>("run-as");
- 
-    ETDCASSERT(::setgid(run_as_ptr->pw_gid)==0, "setgid() failed - " << etdc::strerror(errno));
-    ETDCASSERT(::setuid(run_as_ptr->pw_uid)==0, "setuid() failed - " << etdc::strerror(errno));
-    ETDCASSERT(::getuid() && ::geteuid() && ::getgid() && ::getegid(),
-               "Not all privileges were dropped; some rootage is still left!");
+    // No daemonization in the prototype. The process always runs in the
+    // foreground so Docker can supervise it.
+
+    // Drop privileges.
+    // struct passwd* run_as_ptr = cmd.get<struct passwd*>("run-as");
+
+    // ETDCASSERT(::setgid(run_as_ptr->pw_gid)==0,
+    //         "setgid() failed - " << etdc::strerror(errno));
+    // ETDCASSERT(::setuid(run_as_ptr->pw_uid)==0,
+    //         "setuid() failed - " << etdc::strerror(errno));
+    // ETDCASSERT(::getuid() && ::geteuid() && ::getgid() && ::getegid(),
+    //         "Not all privileges were dropped; some rootage is still left!");
+
+    
+   // Docker supervises etd directly, so it always stays in the foreground.
+    // If started as root, drop privileges to the configured user.
+    if (::geteuid() == 0) {
+        struct passwd* run_as_ptr = cmd.get<struct passwd*>("run-as");
+
+        ETDCASSERT(
+            run_as_ptr != nullptr,
+            "No valid --run-as user was configured"
+        );
+
+        ETDCASSERT(
+            run_as_ptr->pw_uid != 0 && run_as_ptr->pw_gid != 0,
+            "--run-as must identify a non-root user"
+        );
+
+        // Remove inherited supplementary root groups.
+        ETDCASSERT(
+            ::setgroups(0, nullptr) == 0,
+            "setgroups() failed - " << etdc::strerror(errno)
+        );
+
+        ETDCASSERT(
+            ::setgid(run_as_ptr->pw_gid) == 0,
+            "setgid() failed - " << etdc::strerror(errno)
+        );
+
+        ETDCASSERT(
+            ::setuid(run_as_ptr->pw_uid) == 0,
+            "setuid() failed - " << etdc::strerror(errno)
+        );
+    }
+
+    ETDCASSERT(
+        ::getuid() != 0 &&
+        ::geteuid() != 0 &&
+        ::getgid() != 0 &&
+        ::getegid() != 0,
+        "etd must run as a non-root user"
+    );
+
+    std::cerr << "Starting ETD server..." << std::endl;
 
     // Oh dear.
-    if( daemonize ) {
-        // We replace std::cerr's streambuf so from this moment on all
-        // output goes to syslog - we are, after all, daemonizing
-        oldStreamBuf = logDirectory.empty() ? etdc::redirect_to_syslog(std::cerr, argv[0]) :
-                                              etdc::redirect_to_file(std::cerr, argv[0], logDirectory);
+    // if( daemonize ) {
+    //     // We replace std::cerr's streambuf so from this moment on all
+    //     // output goes to syslog - we are, after all, daemonizing
+    //     oldStreamBuf = logDirectory.empty() ? etdc::redirect_to_syslog(std::cerr, argv[0]) :
+    //                                           etdc::redirect_to_file(std::cerr, argv[0], logDirectory);
 
-        do_daemonize();
-    }
+    //     do_daemonize();
+    // }
+
+    std::cerr << "Starting ETD server..." << std::endl;
 
     // Fire up the signal thread. 
     std::promise<int>   killSigPromise;

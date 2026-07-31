@@ -48,6 +48,10 @@ ifeq ($(B2B),native)
 	ifeq ($(MACHINE),i386)
 		arch=IA32
 	endif
+# 	Checks if os is mac
+	ifeq ($(filter $(MACHINE),arm64 aarch64),$(MACHINE))
+    arch=ARM64
+	endif
 endif
 
 ifeq ($(B2B),32)

@@ -26,6 +26,20 @@ COPY requirements.txt .
 RUN pip install --upgrade pip \
  && pip install --no-cache-dir -r requirements.txt
 
+
+#================
+# etransfer
+#================
+# Putting this here means that every additional simulator image will contain both executables.
+# Only the VLBA simulator ever calls etc.
+# Only the ETD container ever runs etd.
+COPY eTransfer /tmp/etransfer
+
+RUN cd /tmp/etransfer \
+ && make \
+ && find . -path "*/etc" -type f -executable -exec cp {} /usr/local/bin/etc \; \
+ && find . -path "*/etd" -type f -executable -exec cp {} /usr/local/bin/etd \;
+
 COPY . .
 
 RUN python manage.py collectstatic --noinput

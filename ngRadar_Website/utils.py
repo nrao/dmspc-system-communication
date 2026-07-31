@@ -1,8 +1,6 @@
 from datetime import datetime, timezone
-from confluent_kafka.admin import AdminClient, NewTopic, KafkaException, KafkaError
+# from confluent_kafka.admin import AdminClient, NewTopic, KafkaException, KafkaError
 from dotenv import load_dotenv
-from matplotlib.path import Path
-from pathlib import Path
 from ngRadar_Website.enums import Stations
 from confluent_kafka import Consumer
 import boto3
@@ -14,6 +12,7 @@ from botocore.exceptions import (
     ConnectionError,
     ClientError,
 )
+import subprocess
 
 #Program constants
 SESSION_TIMEOUT_MS = 45000
@@ -66,22 +65,25 @@ def config_func(sim, bootstrap):
 
     # perform the shared behavior for each type:
     if type == "producer and consumer":
-        # config for both producer and consumer sims
-        admin = AdminClient({"bootstrap.servers": bootstrap})
-        topics = [
-            NewTopic(topic1, num_partitions=3, replication_factor=1),
-            NewTopic(topic2, num_partitions=1, replication_factor=1),
-        ]
-        fs = admin.create_topics(topics, request_timeout=30)
+        # # config for both producer and consumer sims
+        # print("BOOTSTRAP =", bootstrap)
+        # admin = AdminClient({"bootstrap.servers": bootstrap})
+        # topics = [
+        #     NewTopic(topic1, num_partitions=3, replication_factor=1),
+        #     NewTopic(topic2, num_partitions=1, replication_factor=1),
+        # ]
+        # fs = admin.create_topics(topics, request_timeout=30)
 
-        for topic, f in fs.items():
-            # f is a Future; result() will raise if creation failed for reasons other than "already exists"
-            try:
-                f.result()
-            # handle the case where it tried to create a topic that already exists:
-            except KafkaException as e:
-                if e.args[0].code() != KafkaError.TOPIC_ALREADY_EXISTS:
-                    raise
+        # for topic, f in fs.items():
+        #     # f is a Future; result() will raise if creation failed for reasons other than "already exists"
+        #     try:
+        #         f.result()
+        #         print(f"Created topic {topic}")
+        #     # handle the case where it tried to create a topic that already exists:
+        #     except KafkaException as e:
+        #         if e.args[0].code() != KafkaError.TOPIC_ALREADY_EXISTS:
+        #             print(f"Failed creating topic {topic}: {e!r}")
+        #             raise
         
         producer_topic = topic2  # NOTE The topic to which the messages will be sent, rename accordingly to whatever topic you want to send to
         producer_config = {
@@ -123,29 +125,36 @@ def bootstrap(sim):
     """
     load_dotenv()  # Load environment variables from .env file
 
-    p = Path("../../../../out/ngrok_endpoint.env")
-    text = p.read_text().strip()
+    # p = Path("../../../../out/ngrok_endpoint.env")
+    # text = p.read_text().strip()
 
-    bootstrap = None
-    for line in text.splitlines():
-        if line.startswith("BOOTSTRAP_SERVER="):
-            bootstrap = line.split("=", 1)[1].strip()
-            break
+    # bootstrap = None
+    # for line in text.splitlines():
+    #     if line.startswith("BOOTSTRAP_SERVER="):
+    #         bootstrap = line.split("=", 1)[1].strip()
+    #         break
 
-    if not bootstrap:
-        raise RuntimeError("BOOTSTRAP_SERVER not found in /out/ngrok_endpoint.env")
+    # if not bootstrap:
+    #     raise RuntimeError("BOOTSTRAP_SERVER not found in /out/ngrok_endpoint.env")
+
+    bootstrap = os.getenv("BOOTSTRAP_SERVER", "broker:29092")
     
+    # if sim != Stations.DSOC:
+    #     producer_topic, producer_config, consumer_topic, consumer_config = config_func(sim, bootstrap)
+    #     return producer_topic, producer_config, consumer_topic, consumer_config
+    # else:
+    #     topic, config = config_func(sim, bootstrap)
+    #     return topic, config
+
     if sim != Stations.DSOC:
-        producer_topic, producer_config, consumer_topic, consumer_config = config_func(sim, bootstrap)
-        return producer_topic, producer_config, consumer_topic, consumer_config
+        return config_func(sim, bootstrap)
     else:
-        topic, config = config_func(sim, bootstrap)
-        return topic, config
+        return config_func(sim, bootstrap)
     
 
-def views_bootstrap():
-    from dotenv import load_dotenv
-    load_dotenv(override=True)
+# def views_bootstrap():
+#     from dotenv import load_dotenv
+#     load_dotenv(override=True)
 
 
 def consume(topic, config, process_msg, producer_topic=None, producer_config=None):
@@ -283,3 +292,16 @@ def upload_seaweedfs(s3, image_key, file_data):
 
     print(f"Success: {image_key}")
     return image_key
+
+
+
+# etransfer send data from client -> daemon util function
+def etc_send(frame_path):
+    subprocess.run(
+        [
+            "etc",
+            str(frame_path),
+            os.environ["ETD_DESTINATION"],
+        ],
+        check=True,
+    )

@@ -4,7 +4,9 @@ OPT?=opt
 LIBS=
 OBJS=
 CXX?=g++
-COMP=$(CXX) -fPIC -g -O2 -Wall -W -Werror -Wextra -pedantic -DB2B=$(B2B) -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -D_GNU_SOURCE -U_GNU_SOURCE -D__STDC_FORMAT_MACROS -Wcast-qual -Wwrite-strings -Wredundant-decls -Wfloat-equal -Wshadow -D_FILE_OFFSET_BITS=64 -pthread -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS  -std=c++11 -I.
+# GCC 14+ emits false-positive -Warray-bounds diagnostics in std::regex.
+# Keep the warning visible but don't fail the build.
+COMP=$(CXX) -fPIC -g -O2 -Wall -W -Werror -Wno-error=array-bounds -Wextra -pedantic -DB2B=$(B2B) -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -D_GNU_SOURCE -U_GNU_SOURCE -D__STDC_FORMAT_MACROS -Wcast-qual -Wwrite-strings -Wredundant-decls -Wfloat-equal -Wshadow -D_FILE_OFFSET_BITS=64 -pthread -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS  -std=c++11 -I.
 ifeq ($(B2B),32)
 	override COMP   += -m32
 endif

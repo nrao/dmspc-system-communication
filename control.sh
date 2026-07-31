@@ -2,8 +2,12 @@
 
 set -euo pipefail
 KAFKA_PROFILES="--profile kafka"
+# KAFKA_SERVICES="zookeeper broker kafka-ui ngrok gbt seaweedfs dsoc ngrok-writer vlba"
+# KAFKA_SERVICES="zookeeper kafka-broker kafka-ui kafka-init gbt seaweedfs dsoc vlba etr_daemon"
 
-KAFKA_SERVICES="zookeeper broker kafka-ui ngrok gbt seaweedfs dsoc vlba ngrok-writer"
+# the order of these services matter!! learned the hard way..
+KAFKA_SERVICES="zookeeper kafka-broker kafka-init kafka-ui seaweedfs"
+SIM_SERVICES="etr_daemon gbt vlba dsoc"
 
 COMMAND="$1"
 
@@ -50,16 +54,44 @@ load-staging-data)
     docker compose run --rm staging_loader
     ;;
 
+
 kafka-up)
-    echo "Starting kafka broker, zookeeper, kafka-ui, ngrok, seaweedfs, workers..."
-    docker compose $KAFKA_PROFILES up -d
+    echo "Starting Kafka infrastructure and storage..."
+    docker compose $KAFKA_PROFILES up -d $KAFKA_SERVICES
+    ;;
+
+sims-up)
+    echo "Starting simulator services..."
+    docker compose $KAFKA_PROFILES up -d $SIM_SERVICES
+    ;;
+
+system-up)
+    echo "Starting Kafka infrastructure and storage..."
+    "$0" kafka-up
+    echo "Starting simulator services..."
+    "$0" sims-up
     ;;
 
 
 kafka-down)
-    echo "Stopping kafka broker, zookeeper, kafka-ui, ngrok, seaweedfs, workers..."
+    echo "Stopping kafka infrastructure and storage..."
     docker compose stop $KAFKA_SERVICES
     docker compose rm -f $KAFKA_SERVICES
+    ;;
+
+sims-down)
+    echo "Stopping simulator services..."
+    docker compose stop $SIM_SERVICES
+    docker compose rm -f $SIM_SERVICES
+    ;;
+
+system-down)
+    echo "Stopping kafka infrastructure and storage..."
+    docker compose stop $KAFKA_SERVICES
+    docker compose rm -f $KAFKA_SERVICES
+    echo "Stopping simulator services..."
+    docker compose stop $SIM_SERVICES
+    docker compose rm -f $SIM_SERVICES
     ;;
 
 testcov)
@@ -96,6 +128,11 @@ hard-reset)
     echo "./control.sh attach"
     echo "./control.sh load-staging-data"
     echo "./control.sh hard-reset"
+    echo "./control.sh testcov"
+    echo "./control.sh sims-up"
+    echo "./control.sh sims-down"
+    echo "./control.sh system-up"
+    echo "./control.sh system-down"
     exit 1
     ;;
 

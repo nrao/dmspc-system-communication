@@ -1,12 +1,9 @@
-import subprocess
-
 from django.core.management.base import BaseCommand
 from confluent_kafka import Producer
-from ngRadar_Website.utils import bootstrap, consume
+from ngRadar_Website.utils import bootstrap, consume, etc_send
 from ngRadar_Website.enums import Stations
-from ngRadar_Website.models.models import gbtEvent
 from pathlib import Path
-import sys
+
 
 
 """
@@ -47,32 +44,13 @@ def process_msg(msg, producer_topic, producer_config):
     produce(producer_topic, producer_config, key, value)
 
     # after sending a kafka message, begin e-transfer NOTE we need the etransfer repo in our repo to get this working
-    #start_etransfer()
+    frame_path = Path("/service/testdata/hello.txt")
+    # ^ this is the location of the data vlba client is going to grab and send to dsoc daemon
+    etc_send(frame_path)
 
 
-def start_etransfer():
-    # TODO put this block in vlba docker compose
-    # run etd command somehow
-    # volumes:
-    #   - ./etransfer_data/vlba:/data  # contains new and transferred folders?
 
-    # TODO put this block in dsoc docker compose
-    # run etd command somehow unless this only needs to be done once
-    # volumes:
-    #   - ./etransfer_data/dsoc:/data  # includes raw and processed folders?
-
-    cmd = ["./etc", f"{CLIENT_SOURCE}", f"{DAEMON_DESTINATION}"]  # TODO figure out where to access etc
-
-    result = subprocess.run(
-        cmd,
-        cwd=COMMAND_DIR,
-        capture_output=False,  # set False if you want command output to print to the terminal
-        text=True,
-        check=False,  # set True if you want exceptions on non-zero exit
-        stdin=sys.stdin, # these three inputs (stdin, stdout, stderr) are necessary!
-        stdout=sys.stdout, # etc behaves differently when connected to pipes instead of the terminal (it keeps initiating transfers continuously)
-        stderr=sys.stderr, # these variables ensure that it is connected to the terminal and has expected behavior
-    )
+    
 
 
 class Command(BaseCommand):

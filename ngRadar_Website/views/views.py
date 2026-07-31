@@ -21,9 +21,9 @@ from confluent_kafka import Producer
 import uuid
 import os
 from datetime import datetime, timezone 
-from ngRadar_Website.utils import views_bootstrap
+# from ngRadar_Website.utils import views_bootstrap
 
-views_bootstrap()
+# views_bootstrap()
 
 #program constants
 
