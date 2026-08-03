@@ -657,8 +657,6 @@ int main(int argc, char const*const*const argv) {
         "etd must run as a non-root user"
     );
 
-    std::cerr << "Starting ETD server..." << std::endl;
-
     // Oh dear.
     // if( daemonize ) {
     //     // We replace std::cerr's streambuf so from this moment on all

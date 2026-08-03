@@ -46,7 +46,14 @@ def process_msg(msg, producer_topic, producer_config):
     # after sending a kafka message, begin e-transfer NOTE we need the etransfer repo in our repo to get this working
     frame_path = Path("/service/testdata/hello.txt")
     # ^ this is the location of the data vlba client is going to grab and send to dsoc daemon
-    etc_send(frame_path)
+
+    #NOTE: this is where we can add more logic to print status updates on data being generated at VLBA, and send once it's ready. For now, we are just sending a static file to DSOC daemon to test the e-transfer functionality.
+    if frame_path.exists():
+        print(f"Sending {frame_path} to DSOC daemon...")
+        etc_send(frame_path)
+    else:
+        print(f"Error: {frame_path} does not exist. Cannot send to DSOC daemon.")
+
 
 
 
