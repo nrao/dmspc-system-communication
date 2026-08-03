@@ -12,7 +12,9 @@
 
 services:
   ngradar_website:
-    build: .
+    build:
+      context: .
+      target: app
     env_file:
       - .env
     depends_on:
@@ -250,7 +252,9 @@ services:
 #==========================
 
   gbt:
-    build: .
+    build:
+      context: .
+      target: app
     env_file:
       - .env
     depends_on:
@@ -288,7 +292,9 @@ services:
 
 
   dsoc:
-    build: .
+    build:
+      context: .
+      target: app
     env_file:
       - .env
     depends_on:
@@ -331,43 +337,45 @@ services:
   
 
   vlba:
-      build: .
-      env_file:
-        - .env
-      depends_on:
-        postgres:
-          condition: service_healthy
-        kafka-broker:
-          condition: service_healthy
-        kafka-init:
-          condition: service_completed_successfully
-        etr_daemon:
-          condition: service_started
-      volumes:
-        - .:/service
-        # - ngrok_env:/out
-      networks:
-        - ngradar_website_network
-      profiles: ["kafka"]
-      environment:
-        ETD_DESTINATION: "etr_daemon:/dsoc/incoming/"
-        BOOTSTRAP_SERVER: kafka-broker:29092
-      entrypoint:
-        - python
-        - manage.py
-        - vlba_sim
-      # entrypoint:
-      #   - /bin/sh
-      #   - -c
-      #   - |
-      #     rm -f /out/ngrok_endpoint.env
-      #     echo "Finding ngrok endpoint..."
-      #     while [ ! -f /out/ngrok_endpoint.env ]; do sleep 2; done
-      #     while [ ! -s /out/ngrok_endpoint.env ]; do sleep 1; done
-      #     echo "----- Using ngrok endpoint: -----"
-      #     cat /out/ngrok_endpoint.env
-      #     echo "------------------------------------"
-      #     python manage.py vlba_sim
+    build:
+      context: .
+      target: etransfer
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-broker:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      etr_daemon:
+        condition: service_started
+    volumes:
+      - .:/service
+      # - ngrok_env:/out
+    networks:
+      - ngradar_website_network
+    profiles: ["kafka"]
+    environment:
+      ETD_DESTINATION: "etr_daemon:/dsoc/incoming/"
+      BOOTSTRAP_SERVER: kafka-broker:29092
+    entrypoint:
+      - python
+      - manage.py
+      - vlba_sim
+    # entrypoint:
+    #   - /bin/sh
+    #   - -c
+    #   - |
+    #     rm -f /out/ngrok_endpoint.env
+    #     echo "Finding ngrok endpoint..."
+    #     while [ ! -f /out/ngrok_endpoint.env ]; do sleep 2; done
+    #     while [ ! -s /out/ngrok_endpoint.env ]; do sleep 1; done
+    #     echo "----- Using ngrok endpoint: -----"
+    #     cat /out/ngrok_endpoint.env
+    #     echo "------------------------------------"
+    #     python manage.py vlba_sim
 
 
 
@@ -431,7 +439,9 @@ services:
         chmod 775 /dsoc/incoming
 
   etr_daemon:
-    build: .
+    build:
+      context: .
+      target: etransfer
     profiles: ["kafka"]
     user: "33:33"   # non root user: www-data
     depends_on:
