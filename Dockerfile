@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -28,20 +28,28 @@ RUN pip install --upgrade pip \
 
 
 #================
-# etransfer
+# app
 #================
-# Putting this here means that every additional simulator image will contain both executables.
-# Only the VLBA simulator ever calls etc.
-# Only the ETD container ever runs etd.
-COPY eTransfer /tmp/etransfer
-
-RUN cd /tmp/etransfer \
- && make \
- && find . -path "*/etc" -type f -executable -exec cp {} /usr/local/bin/etc \; \
- && find . -path "*/etd" -type f -executable -exec cp {} /usr/local/bin/etd \;
+FROM base AS app
 
 COPY . .
 
 RUN python manage.py collectstatic --noinput
 
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+
+
+#================
+# etransfer
+#================
+# Putting this here means that every additional simulator image will contain both executables.
+# Only the VLBA simulator ever calls etc.
+# Only the ETD container ever runs etd.
+FROM app AS etransfer
+
+COPY eTransfer /tmp/etransfer
+
+RUN cd /tmp/etransfer \
+ && make \
+ && find . -path "*/etc" -type f -executable -exec cp {} /usr/local/bin/etc \; \
+ && find . -path "*/etd" -type f -executable -exec cp {} /usr/local/bin/etd \;
