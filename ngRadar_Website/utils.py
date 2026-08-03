@@ -306,11 +306,23 @@ def upload_seaweedfs(s3, image_key, file_data):
 
 # etransfer send data from client -> daemon util function
 def etc_send(frame_path):
+    """
+    Sends data from the client to the daemon using e-transfer.
+    Daemon is already set up when dsoc etd container starts (etr daemon)
+
+    Input: 
+        frame_path = Path to the file that we want to send to the daemon. On the client machine.
+    Output: 
+        Command line output of the etc command, which will show the progress of the transfer and any errors that may occur. Overwrite flag used for now to demmonstrate sequencing even if same file is being sent multiple times.
+        Use --resume flag in production.
+    """
+
     subprocess.run(
         [
             "etc",
             str(frame_path),
-            os.environ["ETD_DESTINATION"],
+            os.environ["ETD_DESTINATION"], # env variable set in docker compose - will need to change in production to point to the actual daemon destination that is not localhost
+            "--overwrite",
         ],
         check=True,
     )
