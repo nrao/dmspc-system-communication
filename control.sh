@@ -6,7 +6,7 @@ KAFKA_PROFILES="--profile kafka"
 # KAFKA_SERVICES="zookeeper kafka-broker kafka-ui kafka-init gbt seaweedfs dsoc vlba etr_daemon"
 
 # the order of these services matter!! learned the hard way..
-KAFKA_SERVICES="zookeeper kafka-broker kafka-init kafka-ui seaweedfs"
+KAFKA_SERVICES="zookeeper kafka-broker kafka-init kafka-ui seaweedfs dsoc-volume-init"
 SIM_SERVICES="etr_daemon gbt vlba dsoc"
 
 COMMAND="$1"
