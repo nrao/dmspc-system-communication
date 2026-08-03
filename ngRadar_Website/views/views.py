@@ -8,12 +8,13 @@ import json
 from django.http import StreamingHttpResponse, JsonResponse, HttpResponse
 
 # serve_image imports
-from ngRadar_Website.utils import create_s3_client # , get_presigned_url
+from ngRadar_Website.utils import create_s3_client, bootstrap # , get_presigned_url
+from ngRadar_Website.enums import Stations
 
 #libraries used for lock status
 from django.core.cache import cache
 
-from ngRadar_Website.models.models import ObservatoryEvent, uiEvent, ngrok_endpoint, gbtEvent, dsocEvent
+from ngRadar_Website.models.models import ObservatoryEvent, uiEvent, gbtEvent, dsocEvent  # , ngrok_endpoint
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, logout
 from django.db.models import Avg
@@ -149,14 +150,16 @@ def submit_waveform(request):
         # if not bootstrap:
         #     raise RuntimeError("BOOTSTRAP_SERVER not found in /out/ngrok_endpoint.env")
         
-        bootstrap = ngrok_endpoint.objects.last().bootstrap
+        # bootstrap = ngrok_endpoint.objects.last().bootstrap
+
+        topic, config = bootstrap(Stations.UI)
 
         # Kafka version 
-        topic = "user_input"
-        config = {
-            "bootstrap.servers": bootstrap,
-            "message.max.bytes": 8388608,
-            "client.id": "ui-producer"}
+        # topic = "user_input"
+        # config = {
+        #     "bootstrap.servers": bootstrap,
+        #     "message.max.bytes": 8388608,
+        #     "client.id": "ui-producer"}
         message = "User input a new waveform."
 
         def produce(topic, config, key, value):

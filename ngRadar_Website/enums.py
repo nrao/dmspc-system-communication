@@ -13,3 +13,4 @@ class Stations(models.IntegerChoices):
     BR  = 98, "Brewster (25-m, VLBA)"
     MK  = 99, "Mauna Kea (25-m, VLBA)"
     DSOC = 100, "DSOC (Domenici Socorro Operations Center)"
+    UI = 101, "User Interface"

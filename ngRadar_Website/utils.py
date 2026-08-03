@@ -48,7 +48,7 @@ def config_func(sim, bootstrap):
     """
 
     # determine the type of sim being used - each one has unique kafka topics:
-    if sim != Stations.DSOC:
+    if sim in [Stations.GBT, Stations.HN]:
         type = "producer and consumer"
         if sim == Stations.GBT:
             # GBT consumes from UI, produces to GBT
@@ -58,10 +58,14 @@ def config_func(sim, bootstrap):
             # VLBA consumes from GBT, produces to VLBA
             topic1 = "GBT_data"
             topic2 = "VLBA_data"
-    else:
+    elif sim == Stations.DSOC:
         # DSOC is now consuming from VLBA
         type = "consumer"
         topic = ["VLBA_data"]  #consumes from the GBT's topic
+    else:  # sim == Stations.UI:
+        # UI produces to UI topic
+        type = "producer"
+        topic = "user_input"
 
     # perform the shared behavior for each type:
     if type == "producer and consumer":
@@ -102,7 +106,7 @@ def config_func(sim, bootstrap):
             "auto.offset.reset": "earliest",
         }
         return producer_topic, producer_config, consumer_topic, consumer_config
-    else:
+    elif type == "consumer":
         # config for just consumer
         
         config = {
@@ -112,6 +116,14 @@ def config_func(sim, bootstrap):
             "client.id": f"{sim.name.lower()}-consumer",
             "group.id": f"{sim.name.lower()}-consumer-group",
             "auto.offset.reset": "earliest",
+        }
+    else:  # type == "producer"
+        # config for just producer
+
+        config = {
+            "bootstrap.servers": bootstrap,
+            "message.max.bytes": MAX_BYTES,
+            "client.id": f"{sim.name.lower()}-producer",
         }
 
     return topic, config
@@ -137,7 +149,7 @@ def bootstrap(sim):
     # if not bootstrap:
     #     raise RuntimeError("BOOTSTRAP_SERVER not found in /out/ngrok_endpoint.env")
 
-    bootstrap = os.getenv("BOOTSTRAP_SERVER", "broker:29092")
+    bootstrap = os.getenv("BOOTSTRAP_SERVER", "kafka-broker:29092")
     
     # if sim != Stations.DSOC:
     #     producer_topic, producer_config, consumer_topic, consumer_config = config_func(sim, bootstrap)
@@ -146,10 +158,7 @@ def bootstrap(sim):
     #     topic, config = config_func(sim, bootstrap)
     #     return topic, config
 
-    if sim != Stations.DSOC:
-        return config_func(sim, bootstrap)
-    else:
-        return config_func(sim, bootstrap)
+    return config_func(sim, bootstrap)
     
 
 # def views_bootstrap():
