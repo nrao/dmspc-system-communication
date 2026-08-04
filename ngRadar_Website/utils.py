@@ -317,12 +317,27 @@ def etc_send(frame_path):
         Use --resume flag in production.
     """
 
-    subprocess.run(
-        [
-            "etc",
-            str(frame_path),
-            os.environ["ETD_DESTINATION"], # env variable set in docker compose - will need to change in production to point to the actual daemon destination that is not localhost
-            "--overwrite",
-        ],
-        check=True,
+    command = [
+        "etc",
+        str(frame_path),
+        os.environ["ETD_DESTINATION"], # env variable set in docker compose - will need to change in production to point to the actual daemon destination that is not localhost
+        "--overwrite",
+    ]
+
+    # Run command inside a pseudo-tty so progress/status bar is produced.
+    process = subprocess.Popen(
+        ["script", "-q", "-c", " ".join(command), "/dev/null"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=0,
     )
+
+    for chunk in iter(lambda: process.stdout.read(1024), ""):
+        if not chunk:
+            break
+        print(chunk, end="", flush=True)
+
+    rc = process.wait()
+    if rc != 0:
+        raise subprocess.CalledProcessError(rc, command)
