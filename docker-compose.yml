@@ -52,7 +52,8 @@ services:
   staging_loader:
     build:
       context: .
-      dockerfile: load-staging-data.Dockerfile
+      target: load-staging-data
+      # dockerfile: load-staging-data.Dockerfile
     env_file:
       - .env
     networks:
@@ -254,7 +255,7 @@ services:
   gbt:
     build:
       context: .
-      target: app
+      target: base
     env_file:
       - .env
     depends_on:
@@ -294,7 +295,7 @@ services:
   dsoc:
     build:
       context: .
-      target: app
+      target: base
     env_file:
       - .env
     depends_on:
@@ -339,7 +340,7 @@ services:
   vlba:
     build:
       context: .
-      target: etransfer
+      target: etc
     env_file:
       - .env
     depends_on:
@@ -385,7 +386,8 @@ services:
   seaweedfs:
     build: 
       context: .
-      dockerfile: seaweed.Dockerfile
+      target: seaweedfs
+      # dockerfile: seaweed.Dockerfile
     env_file:
       - .env
     environment:
@@ -441,7 +443,7 @@ services:
   etr_daemon:
     build:
       context: .
-      target: etransfer
+      target: etd
     profiles: ["kafka"]
     user: "33:33"   # non root user: www-data
     depends_on:
