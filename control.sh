@@ -96,21 +96,6 @@ system-down)
     docker compose rm -f $SIM_SERVICES
     ;;
 
-# soft-reset)
-#     ./control.sh system-down
-#     ./control.sh stop
-#     # docker compose down
-#     docker rmi $(docker images --filter=reference='dmspc-system-communication*' --quiet)
-#     # docker volume ls -q | xargs -r docker volume rm
-#     docker volume ls -q \
-#         | grep -v '^dmspc-system-communication_postgres_data$' \
-#         | xargs -r docker volume rm
-#     docker compose build --no-cache
-
-#     ./control.sh start
-#     ./control.sh system-up
-#     ;;
-
 soft-reset)
     ./control.sh system-down
     ./control.sh stop
