@@ -35,7 +35,11 @@ EXPIRE_TIME_SECONDS = 3600
 def get_obs_events():
     """Helper function to keep data uniform across view updates"""
 
-    latest_events = ObservatoryEvent.objects.order_by("-event_time")[:RECORDS_TO_DISPLAY]
+    # latest_events = ObservatoryEvent.objects.order_by("-event_time")[:RECORDS_TO_DISPLAY]
+    latest_events = ObservatoryEvent.objects.order_by(
+        "-event_time",
+        "-uuid",
+        )[:RECORDS_TO_DISPLAY]
     ui_events = uiEvent.objects.order_by("-event_time")[:LAST_RECORDS]
     gbt_events = gbtEvent.objects.order_by("-event_time")[:LAST_RECORDS]
     dsoc_events = dsocEvent.objects.order_by("-event_time")[:LAST_RECORDS]

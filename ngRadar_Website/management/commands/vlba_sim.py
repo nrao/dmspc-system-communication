@@ -7,6 +7,8 @@ import json
 import subprocess
 import uuid
 from django.utils import timezone
+from ngRadar_Website.models.models import gbtEvent, ETransferEvent
+from datetime import datetime, timezone
 
 
 
@@ -55,7 +57,7 @@ def send_kafka_message(
         "status_label": status.label,
         "num_bytes": num_bytes,
         "filename": filename,
-        "event_time": timezone.now().isoformat(),
+        "event_time": datetime.now(timezone.utc).isoformat(),
         "message": message,
         "stations": stations.label,
     }
@@ -68,6 +70,33 @@ def send_kafka_message(
     )
 
 
+# Helper function to record the status of the e-transfer in the ETransferEvent table
+def record_transfer_event(
+    *,
+    transfer_uuid,
+    gbt_uuid,
+    station,
+    status,
+    num_bytes=0,
+    latency_ms=0.0,
+    message="",
+):
+    gbt_event = gbtEvent.objects.get(uuid=gbt_uuid)
+
+    return ETransferEvent.objects.create(
+        transfer_uuid=transfer_uuid,
+        gbt_uuid=gbt_uuid,
+        object_id=gbt_event.object_id,
+        target=gbt_event.target,
+        station=station,
+        event_time=datetime.now(timezone.utc),
+        latency_ms=latency_ms,
+        num_bytes=num_bytes,
+        status=status,
+        message=message,
+    )
+
+
 
 def process_msg(msg, producer_topic, producer_config):
     gbt_uuid = msg.key().decode("utf-8")
@@ -75,6 +104,17 @@ def process_msg(msg, producer_topic, producer_config):
     # frame_path = Path("/service/mock_assets/large_data/BT161A1_PT_No0008.large")
 
     frame_path = Path("/service/testdata/hello.txt")
+
+    record_transfer_event(
+            transfer_uuid=transfer_uuid,
+            gbt_uuid=gbt_uuid,
+            station=Stations.HN,
+            status=Status.READY,
+            num_bytes=0,
+            message="VLBA data file complete. Ready for e-transfer.",
+        )
+
+
     if not frame_path.is_file():
         send_kafka_message(
             producer_topic=producer_topic,
@@ -90,18 +130,15 @@ def process_msg(msg, producer_topic, producer_config):
 
     num_bytes = frame_path.stat().st_size
 
-    # send_kafka_message(
-    #     producer_topic=producer_topic,
-    #     producer_config=producer_config,
-    #     transfer_uuid=transfer_uuid,
-    #     gbt_uuid=gbt_uuid,
-    #     status=Status.TRANSFERRING,
-    #     num_bytes=num_bytes,
-    #     filename=frame_path.name,
-    #     message="VLBA began the e-transfer",
-    # )
-
     try:
+        record_transfer_event(
+                transfer_uuid=transfer_uuid,
+                gbt_uuid=gbt_uuid,
+                station=Stations.HN,
+                status=Status.TRANSFERRING,
+                num_bytes=num_bytes,
+                message="VLBA e-transfer in progress",
+            )
         etc_send(frame_path)
     except subprocess.CalledProcessError as exc:
         send_kafka_message(
@@ -130,6 +167,7 @@ def process_msg(msg, producer_topic, producer_config):
             message=f"Unexpected e-transfer failure: {exc}",
         )
         return
+
 
     send_kafka_message(
         producer_topic=producer_topic,

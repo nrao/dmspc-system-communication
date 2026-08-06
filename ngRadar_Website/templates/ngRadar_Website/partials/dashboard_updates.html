@@ -52,22 +52,46 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if latest_event.status == 8 %}
-                                <span class="text-success fw-bold">
+                            {% if latest_event.status == 1 %}
+                                <span class="badge bg-secondary">
                                     {{ latest_event.get_status_display }}
                                 </span>
-                            {% elif latest_event.status == 7 %}
-                                <span class="text-danger fw-bold">
+
+                            {% elif latest_event.status == 2 %}
+                                <span class="badge bg-light text-dark border">
                                     {{ latest_event.get_status_display }}
                                 </span>
+
+                            {% elif latest_event.status == 3 %}
+                                <span class="badge bg-dark">
+                                    {{ latest_event.get_status_display }}
+                                </span>
+
+                            {% elif latest_event.status == 4 %}
+                                <span class="badge bg-primary">
+                                    {{ latest_event.get_status_display }}
+                                </span>
+
                             {% elif latest_event.status == 5 %}
-                                <span class="text-warning fw-bold">
+                                <span class="badge bg-warning text-dark">
                                     {{ latest_event.get_status_display }}
                                 </span>
-                            {% elif latest_event.status %}
-                                <span class="text-primary fw-bold">
+
+                            {% elif latest_event.status == 6 %}
+                                <span class="badge bg-info text-dark">
                                     {{ latest_event.get_status_display }}
                                 </span>
+
+                            {% elif latest_event.status == 7 %}
+                                <span class="badge bg-danger">
+                                    {{ latest_event.get_status_display }}
+                                </span>
+
+                            {% elif latest_event.status == 8 %}
+                                <span class="badge bg-success">
+                                    {{ latest_event.get_status_display }}
+                                </span>
+
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}
