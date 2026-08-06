@@ -49,7 +49,8 @@ def get_obs_events():
     avg_latency = latest_events.aggregate(Avg('latency_ms'))['latency_ms__avg'] or 0
     current_waveform = ui_events.first().selected_waveform if ui_events.exists() else None
     latest_etr_events = ETransferEvent.objects.order_by("-event_time")[:RECORDS_TO_DISPLAY]
-    latest_etr_event = ETransferEvent.objects.order_by("-event_time").first()
+    current_transfer_uuid = latest_events.first().transfer_uuid if latest_events.exists() else None
+    latest_etr_event = ETransferEvent.objects.filter(transfer_uuid=current_transfer_uuid).order_by("-event_time").first()
 
     return {
         'latest_events': latest_events,
