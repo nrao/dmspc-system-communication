@@ -142,7 +142,7 @@ def lock_status(request):
     lock_time = cache.get('submit_locked', None)
     if lock_time is None:
         return JsonResponse({"locked": False})
-    elif ObservatoryEvent.objects.filter(event_time__gt=lock_time, image_key__isnull=False):
+    elif dsocEvent.objects.filter(event_time__gt=lock_time):
         cache.delete('submit_locked')
         return JsonResponse({'locked':False})
     return JsonResponse({'locked':True})
