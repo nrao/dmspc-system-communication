@@ -5,7 +5,9 @@
     </div>
 
     <div class="col-4 text-center">
-        {% if latest_etr_event.status == 4 %}
+        {% if gbt_event.tx_waveform == 'Tx_OFF' %}
+        <span class="fs-5">Waiting for signal...</span>
+        {% elif latest_etr_event.status == 4 %}
         <span class="fs-5">Transferring...</span>
         {% elif latest_etr_event.status == 5 %}
         <span class="fs-5">Verifying...</span>
