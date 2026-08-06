@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from unittest.mock import patch, MagicMock
+from ngRadar_Website.enums import Status
 
 
 # =============================================
@@ -77,16 +78,20 @@ def test_db_columns_mapping(mock_datetime):
 @patch("ngRadar_Website.management.commands.dsoc_sim.dsocEvent") # fake a dsocEvent record, let's you bypass having to connect to postres to test logic
 def test_publish_db_success(mock_dsoc_event):
     """Scenario 1: Valid payload correctly creates and outputs the model instance."""
-    input_data = {"event_time": "time", "object_id": "obj_1", "target": "Venus"}
     mock_instance = MagicMock()
     mock_dsoc_event.objects.create.return_value = mock_instance
 
-    record = publish_DB("keys/img.png", 2048, input_data)
+    image_key = "fake_key/img.png"
+    num_bytes = 2048
+    data = {}
+    xmit_station = "XMIT_STATION"
+    rcvr_station = "RCVR_STATION"
+    transfer_uuid = "TRANSFER_UUID"
+
+    record = publish_DB(image_key=image_key, num_bytes=num_bytes, data=data, xmit_station=xmit_station, rcvr_station=rcvr_station, transfer_uuid=transfer_uuid)
 
     assert record == mock_instance
-    mock_dsoc_event.objects.create.assert_called_once_with(
-        event_time="time", object_id="obj_1", target="Venus", image_key="keys/img.png", num_bytes=2048
-    )
+    mock_dsoc_event.objects.create.assert_called_once_with(image_key='fake_key/img.png', num_bytes=2048, xmit_station='XMIT_STATION', rcvr_station='RCVR_STATION', transfer_uuid='TRANSFER_UUID', status=Status.COMPLETED)
 
 
 @patch("ngRadar_Website.management.commands.dsoc_sim.dsocEvent")
@@ -94,7 +99,14 @@ def test_publish_db_exception(mock_dsoc_event):
     """Scenario 2: Handled database crash returns None instead of crashing runtime."""
     mock_dsoc_event.objects.create.side_effect = Exception("DB Connection Timeout")
 
-    record = publish_DB("keys/img.png", 100, {})
+    image_key = "fake_key/img.png"
+    num_bytes = 2048
+    data = {}
+    xmit_station = "XMIT_STATION"
+    rcvr_station = "RCVR_STATION"
+    transfer_uuid = "TRANSFER_UUID"
+
+    record = publish_DB(image_key=image_key, num_bytes=num_bytes, data=data, xmit_station=xmit_station, rcvr_station=rcvr_station, transfer_uuid=transfer_uuid)
 
     assert record is None
 
@@ -126,27 +138,26 @@ def test_create_img_output():
         "WEED_S3_BUCKET": "fake_bucket",
     },
 )
-@patch("ngRadar_Website.management.commands.dsoc_sim.boto3") #fake the boto3 module which interacts with seaweedfs
-def test_save_image_to_seaweedfs_success(mock_boto3):
+@patch("ngRadar_Website.management.commands.dsoc_sim.create_s3_client") #fake the boto3 module which interacts with seaweedfs
+@patch("ngRadar_Website.management.commands.dsoc_sim.upload_seaweedfs")
+def test_save_image_to_seaweedfs_success(mock_upload, mock_s3):
     #function inputs:
     target = "Venus"
     image_file = b"fake png bytes"
-    uuid = "12345"
+    dsoc_uuid = "12345"
 
     #creating the fake boto3.client:
     mock_instance = MagicMock()
-    mock_boto3.client.return_value = mock_instance
+    mock_s3.return_value = mock_instance
 
-    image_key = save_image_to_seaweedfs(target, image_file, uuid)
+    image_key = "fake_key/img.png"
+    mock_upload.return_value = image_key
 
-    assert image_key == f"ddm/{target}/{uuid}.png"
-    mock_boto3.client.assert_called_once_with(
-        "s3",
-        endpoint_url="seaweedfs.fake.com",
-        aws_access_key_id="fake_access_key",
-        aws_secret_access_key="fake_key",
-    ) #checking that an S3 client was created
-    mock_instance.put_object.assert_called_once() #checking that the object store had new data input into it
+    output = save_image_to_seaweedfs(target, image_file, dsoc_uuid)
+
+    assert output == image_key
+    mock_s3.assert_called_once()
+    mock_upload.assert_called_once_with(mock_instance, f"ddm/Venus/12345.png", b"fake png bytes")
 
 # ==============================================================================
 # 6. process_msg Test
