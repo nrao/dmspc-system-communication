@@ -293,8 +293,8 @@ def process_msg(msg, producer_topic=None, producer_config=None):
             image_key=image_key,
             num_bytes=image_num_bytes,
             data=data,
-            xmit_station=Stations.HN,
-            rcvr_station=Stations.DSOC,
+            xmit_station=Stations.GBT,
+            rcvr_station=Stations.HN,
             transfer_uuid=transfer_uuid,
         )
 

@@ -25,7 +25,7 @@ def create_obsevent_from_gbt(sender, instance, created, **kwargs):
         latency_ms=instance.latency_ms,
         station=Stations.GBT,      
         xmit_station=Stations.GBT, 
-        rcvr_station=Stations.DSOC,
+        rcvr_station=Stations.HN,
         status=None,
     )
 
@@ -68,8 +68,8 @@ def create_obsevent_from_etransfer(sender, instance, created, **kwargs):
         event_time=instance.event_time,
         latency_ms=instance.latency_ms,
         station=instance.station,
-        xmit_station=Stations.HN,
-        rcvr_station=Stations.DSOC,
+        xmit_station=Stations.GBT,
+        rcvr_station=Stations.HN,
         transfer_uuid=instance.transfer_uuid,
         status=instance.status,
     )
