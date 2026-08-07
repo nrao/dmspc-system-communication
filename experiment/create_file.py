@@ -2,7 +2,7 @@ import time
 import random
 import os 
 
-file_name = "some_file.txt"
+file_name = "some_file"
 chunk_size_mb = 10 
 num_chunks = 10
 

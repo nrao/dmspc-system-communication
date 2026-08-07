@@ -1,7 +1,7 @@
 import os
 import time 
 
-file_path = "some_file.txt"
+file_path = "some_file"
 last_size = None 
 
 while True:
