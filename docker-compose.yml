@@ -490,8 +490,6 @@ services:
       - --data
       - srt://:8008
 
-progress_writer:
-
 
 #==========================
 # end of containers
