@@ -68,7 +68,6 @@ def get_obs_events():
     return {
         'latest_events': latest_events,
         'latest_event': ObservatoryEvent.objects.order_by("-event_time").first() if latest_events else None,
-        'latest_event': ObservatoryEvent.objects.order_by("-event_time").first() if latest_events else None,
         'ui_event': ui_events.first() if ui_events else None,
         'gbt_event': gbt_events.first() if gbt_events else None,
         'dsoc_event': dsoc_events.first() if dsoc_events else None,
