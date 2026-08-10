@@ -23,6 +23,17 @@ services:
     stdin_open: true
     tty: true
 
+  e_transfer_codebase:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - .:/e_transfer_container
+    ports:
+      - 8000:8000
+    stdin_open: true
+    tty: true
+
   postgres:
     image: postgres:18-alpine
     volumes:

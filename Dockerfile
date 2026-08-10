@@ -34,11 +34,14 @@ CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 
 #Desmond's Docker Commands for ETransfer - work in progress
 #Docker Commands for ETransfer
-FROM alphine:3.21 AS builder
+FROM alpine:3.21 AS builder
 
 #adds the alpine linux package manager (APK) and common C++ tools
-RUN apk add --no-cache build base
-WORKDIR /eTransferContainer
+RUN apk add --no-cache build-base
+
+RUN mkdir  /e_transfer_container
+WORKDIR /e_transfer_container
 #will copy the etransfer codebase into the target folder for the container
-COPY ["/eTransfer_Codebase/","/eTransferContainer/"]
+COPY ["/e_transfer_codebase","/e_transfer_container"]
+RUN sed -i
 RUN make
