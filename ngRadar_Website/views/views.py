@@ -204,10 +204,21 @@ def submit_waveform(request):
             
             producer.flush()
 
+        def reset_progressbar():
+            progress_data = {
+                "received_bytes": 0,
+                "total_bytes": 0,
+                "percent": 0.0,
+                "transfer_id": 0,
+            }
+            with open(PROGRESS_JSON_PATH, "w", encoding="utf-8") as f:
+                json.dump(progress_data, f)
+
         def main():
             key = uuid_input.hex  # Use the UUID as the key for the Kafka message
             value = json.dumps(message).encode("utf-8")
             produce(topic, config, key, value)
+            reset_progressbar()  # Reset the progress bar after sending the message
         main()
         
         # add a cache for submit time
