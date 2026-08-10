@@ -8,7 +8,7 @@ import json
 from django.http import StreamingHttpResponse, JsonResponse, HttpResponse, HttpResponseNotFound
 
 # serve_image imports
-from ngRadar_Website.utils import create_s3_client, bootstrap # , get_presigned_url
+from ngRadar_Website.utils import create_s3_client, bootstrap, write_transfer_progress # , get_presigned_url
 from ngRadar_Website.enums import Stations
 
 #libraries used for lock status
@@ -204,21 +204,11 @@ def submit_waveform(request):
             
             producer.flush()
 
-        def reset_progressbar():
-            progress_data = {
-                "received_bytes": 0,
-                "total_bytes": 0,
-                "percent": 0.0,
-                "transfer_id": 0,
-            }
-            with open(PROGRESS_JSON_PATH, "w", encoding="utf-8") as f:
-                json.dump(progress_data, f)
-
         def main():
             key = uuid_input.hex  # Use the UUID as the key for the Kafka message
             value = json.dumps(message).encode("utf-8")
             produce(topic, config, key, value)
-            reset_progressbar()  # Reset the progress bar after sending the message
+            write_transfer_progress(received_bytes=0, total_bytes=0, percent=0.0, transfer_id=0)  # Reset the progress bar after sending the message
         main()
         
         # add a cache for submit time
