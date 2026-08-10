@@ -379,12 +379,12 @@ def parse_etc_progress(line, *, expected_num_bytes, transfer_id):
         f"({percent:.1f}%)"
     )
 
-    write_transfer_progress(
-        received_bytes=received_bytes,
-        total_bytes=expected_num_bytes,
-        percent=percent,
-        transfer_id=transfer_id,
-    )
+    # write_transfer_progress(
+    #     received_bytes=received_bytes,
+    #     total_bytes=expected_num_bytes,
+    #     percent=percent,
+    #     transfer_id=transfer_id,
+    # )
 
 
 # etransfer command to send data from client -> daemon 
@@ -406,12 +406,12 @@ def etc_send(frame_path):
     expected_num_bytes = frame_path.stat().st_size
     transfer_id = str(uuid.uuid4())
     # Reset progress at the beginning of a new transfer.
-    write_transfer_progress(
-        received_bytes=0,
-        total_bytes=expected_num_bytes,
-        percent=0.0,
-        transfer_id=transfer_id,
-    )
+    # write_transfer_progress(
+    #     received_bytes=0,
+    #     total_bytes=expected_num_bytes,
+    #     percent=0.0,
+    #     transfer_id=transfer_id,
+    # )
 
     master_fd, slave_fd = os.openpty()
 
@@ -491,12 +491,12 @@ def etc_send(frame_path):
         )
 
     # Ensure progress ends exactly at 100%.
-    write_transfer_progress(
-        received_bytes=expected_num_bytes,
-        total_bytes=expected_num_bytes,
-        percent=100.0,
-        transfer_id=transfer_id,
-    )
+    # write_transfer_progress(
+    #     received_bytes=expected_num_bytes,
+    #     total_bytes=expected_num_bytes,
+    #     percent=100.0,
+    #     transfer_id=transfer_id,
+    # )
 
     
 def create_file(file_path):
