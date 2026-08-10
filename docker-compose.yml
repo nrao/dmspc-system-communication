@@ -335,6 +335,34 @@ services:
     #     # echo "------------------------------------"
     #     python manage.py dsoc_sim
   
+
+
+  etr_progress_writer:
+    build:
+      context: .
+      target: base
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-broker:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    volumes:
+      - .:/service
+      - dsoc_transfer:/dsoc/incoming
+    networks:
+      - ngradar_website_network
+    profiles: ["kafka"]
+    environment:
+      BOOTSTRAP_SERVER: kafka-broker:29092
+    entrypoint:
+        - python
+        - manage.py
+        - etr_progress_writer
+
   
 
   vlba:
@@ -462,6 +490,7 @@ services:
       - --data
       - srt://:8008
 
+progress_writer:
 
 
 #==========================
