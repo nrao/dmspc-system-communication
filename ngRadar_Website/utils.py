@@ -438,7 +438,8 @@ def etc_send(frame_path):
                 continue
 
             try:
-                chunk = os.read(master_fd, 4096).decode(
+
+                terminal_output = os.read(master_fd, 4096).decode(
                     "utf-8",
                     errors="replace",
                 )
@@ -446,9 +447,9 @@ def etc_send(frame_path):
                 break
 
             # Print the actual etc output to Docker logs.
-            print(chunk, end="", flush=True)
+            print(terminal_output, end="", flush=True)
 
-            buffer += chunk
+            buffer += terminal_output
 
             # etc redraws the same terminal line using carriage returns.
             parts = re.split(r"[\r\n]", buffer)
