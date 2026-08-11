@@ -42,7 +42,7 @@ Run these commands in your terminal to accomplish any of the following:
 
 ./control.sh shell          # Does a `docker exec -it ngradar_website_service bash` this allows you to enter the container shell and run commands inside        
                             # the container if needed
-
+                            
 ./control.sh log            # Does a `docker logs -f ngradar_website_service`
 
 ./control.sh attach         # Does a `docker attach ngradar_website_service`

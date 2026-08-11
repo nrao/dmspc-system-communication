@@ -94,7 +94,6 @@ with patch("pathlib.Path.read_text", return_value=mock_env_data):
 
 """Desmond's code here:"""
 
-
 # ==============================================================================
 # 2. serve_image Test
 # ==============================================================================
@@ -145,9 +144,24 @@ def test_serve_image(mock_Config, mock_boto3, mock_get_obj):
             config = mock_config
         ) #checking that an S3 client was created
 
+    
+# ==============================================================================
+# 3. Submit waveform test
+# ==============================================================================
+@patch("ngRadar_Website.views.views.uiEvent.objects.create")
+def test_submit_waveform(Mock_UI_EVENT):
+    mock_ngrok_endpoint = "test123endpoint"
+    test_waveform=45
+    factory = RequestFactory()
+    myRequest = factory.post('home/submit-waveform/', data={'waveform':'test_waveform'})
+
+    submit_waveform(myRequest)
+
+
+
 
 # ==============================================================================
-# 3. login_view Test
+# 4. login_view Test
 # ==============================================================================
 
 
