@@ -500,7 +500,7 @@ def etc_send(frame_path):
 
     
 def create_file(file_path):
-    file_mb = 1
+    file_mb = 1000
     file_size_bytes = file_mb * 1024 * 1024
     num_buffers = 100
 

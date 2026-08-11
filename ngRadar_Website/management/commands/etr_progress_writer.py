@@ -14,8 +14,7 @@ etd_path = Path("/dsoc/incoming")
 
 
 def process_msg(msg, producer_topic=None, producer_config=None):
-    payload = json.loads(msg.value().decode("utf-8"))
-    gbt_uuid = uuid.UUID(payload["gbt_uuid"])
+    gbt_uuid = msg.key().decode("utf-8")
     #print(gbt_uuid)
 
     while True:
@@ -34,12 +33,11 @@ def process_msg(msg, producer_topic=None, producer_config=None):
                 break
 
         incoming_file = etd_path / f"{transfer_uuid}.bin"
-        #print(incoming_file)
 
-        if num_bytes == 0:
-            yield process_msg(event="progress_error",
-                                data=json.dumps({"message": "num_bytes is 0"}))
-            break
+        # if num_bytes == 0:
+        #     yield process_msg(event="progress_error",
+        #                         data=json.dumps({"message": "num_bytes is 0"}))
+        #     break
 
         while True:
             if not incoming_file.exists():
@@ -53,7 +51,7 @@ def process_msg(msg, producer_topic=None, producer_config=None):
                 received_bytes=received_bytes,
                 total_bytes=num_bytes,
                 percent=f"{percent:.1f}",
-                transfer_id=transfer_uuid,
+                transfer_id=f"{transfer_uuid}",
             )
             time.sleep(0.5)
 
@@ -64,13 +62,6 @@ def process_msg(msg, producer_topic=None, producer_config=None):
 
 
 
-
-
-
-
-
-
-
 class Command(BaseCommand):
     help = "Runs the etr progress writer"
 
@@ -78,5 +69,7 @@ class Command(BaseCommand):
         print("Poop")
 
         topic, config = bootstrap(Stations.ETR)
+        print(f"Assigned topic {topic}.")
 
         consume(topic, config, process_msg)
+        print(f"E-transfer complete.")
