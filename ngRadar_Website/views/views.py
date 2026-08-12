@@ -277,35 +277,6 @@ def submit_waveform(request):
 # Render the templates
 #====================================================
 
-
-# @cache_control(no_cache=True, must_revalidate=True, no_store=True, max_age=0) #Desmond's Auth token fix - comment if we decide not to use
-# def login_view(request):
-#     #logout_view(request)
-    
-#     if(request.user.is_authenticated):#will log the user out if they come to the login page and are still logged in
-#         return logout_view(request)#goes to logout message
-
-
-#     if request.method == 'POST':
-#         username_input = request.POST['username']
-#         password_input = request.POST['password']
-        
-#         # This automatically uses the Argon2 settings to verify the password string
-#         user = authenticate(request, username=username_input, password=password_input)
-        
-#         if user is not None:
-#             login(request, user)
-#             return redirect('home')
-#         else:
-#             messages.error(request, "Invalid username or password.")
-#             return render(request, 'registration/login.html')
-        
-#     # Tung's auth token fix - uncomment if we decide to use this
-#     # response = render(request, 'registration/login.html')
-#     # response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-
-#     return render(request, 'registration/login.html')
-
 @cache_control(
     no_cache=True,
     must_revalidate=True,
