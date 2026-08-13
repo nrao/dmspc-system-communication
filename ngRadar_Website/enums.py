@@ -14,6 +14,7 @@ class Stations(models.IntegerChoices):
     MK  = 99, "Mauna Kea (25-m, VLBA)"
     DSOC = 100, "DSOC (Domenici Socorro Operations Center)"
     UI = 101, "User Interface"
+    ETR = 102, "E-Transfer Progress Writer"
 
 
 class Status(models.IntegerChoices):

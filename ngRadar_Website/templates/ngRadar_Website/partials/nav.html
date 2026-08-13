@@ -18,12 +18,67 @@
     <button class="btn btn-dark" type="button">
         Plan Observation
     </button>
-    {% if user.is_authenticated %}
-        <form method="post" action="{% url 'logout' %}">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-dark w-100">
-                Logout
-            </button>
-        </form>
-    {% endif %}
+    <button
+        id="theLogOut_Button"
+        type="button"
+        class="btn btn-dark w-100"
+        data-bs-toggle="modal"
+        data-bs-target="#logoutModal"
+    >
+        Logout
+    </button>
+
+
+<!-- Logout Modal with Confirmation -->
+<div
+    class="modal fade"
+    id="logoutModal"
+    tabindex="-1"
+    aria-labelledby="logoutModalLabel"
+    aria-hidden="true"
+>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5
+                    class="modal-title"
+                    id="logoutModalLabel"
+                >
+                    Log out?
+                </h5>
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                    aria-label="Close"
+                ></button>
+            </div>
+
+            <div class="modal-body">
+                Are you sure you want to log out?
+            </div>
+
+            <div class="modal-footer">
+                 <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    data-bs-dismiss="modal"
+                >
+                    Cancel
+                </button>
+
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        Log Out
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
 <!-- End Nav Content -->
