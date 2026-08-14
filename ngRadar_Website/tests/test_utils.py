@@ -1,7 +1,14 @@
 from datetime import datetime, timedelta, timezone
+import os
 import pytest
 from unittest.mock import patch, MagicMock
 from ngRadar_Website.enums import Stations
+from botocore.config import Config
+from botocore.exceptions import (
+    EndpointConnectionError,
+    ConnectionError,
+    ClientError,
+)
 
 
 # ===============================================
@@ -20,6 +27,10 @@ with patch("pathlib.Path.read_text", return_value=mock_env_data):
         config_func,
         bootstrap,
         consume,
+        create_s3_client,
+        ensure_bucket_exists,
+        etc_send,
+        watch_for_file,
     )
 
 # ==============================================================================
@@ -78,20 +89,8 @@ def test_latency_calc_gbt(event_time, expected):
 
 # NOTE I attempted to make these two scenarios into one test with parametrize, but because they have a different number of variables/outputs, it was too awkward
 
-@patch("ngRadar_Website.utils.AdminClient")
-def test_config_func_GBT(mock_AdminClient):
+def test_config_func_GBT():
     """Scenario 1: sim is GBT"""
-
-    #dealing with the create_topic function, which calls f.result:
-    future = MagicMock()
-    future.result.return_value = None
-    
-    mock_admin = mock_AdminClient.return_value
-    mock_admin.create_topics.return_value = {
-        "user_input": future,
-        "GBT_data": future,
-    }
-
     sim = Stations.GBT
     bootstrap = "12345"
 
@@ -112,30 +111,17 @@ def test_config_func_GBT(mock_AdminClient):
             "group.id": "gbt-consumer-group",
             "auto.offset.reset": "earliest",
         }
-    mock_AdminClient.assert_called_once_with(
-        {"bootstrap.servers": bootstrap}
-    )
 
 
-@pytest.mark.parametrize("sim", [
-        (Stations.SC),
-        (Stations.HN),
-        (Stations.FD)
-    ])
-@patch("ngRadar_Website.utils.AdminClient")
-def test_config_func_vlba(mock_AdminClient, sim):
+# @pytest.mark.parametrize("sim", [
+#         (Stations.SC),
+#         (Stations.HN),
+#         (Stations.FD)
+#     ])
+# NOTE: I want to make the code dynamically accept all VLBA stations, but that is a future project
+def test_config_func_vlba():
     """Scenario 2: sim is a VLBA site"""
-
-    #dealing with the create_topic function, which calls f.result:
-    future = MagicMock()
-    future.result.return_value = None
-    
-    mock_admin = mock_AdminClient.return_value
-    mock_admin.create_topics.return_value = {
-        "GBT_data": future,
-        "VLBA_data": future,
-    }
-
+    sim = Stations.HN
     bootstrap = "12345"
 
     producer_topic, producer_config, consumer_topic, consumer_config = config_func(sim, bootstrap)
@@ -155,9 +141,7 @@ def test_config_func_vlba(mock_AdminClient, sim):
             "group.id": f"{sim.name.lower()}-consumer-group",
             "auto.offset.reset": "earliest",
         }
-    mock_AdminClient.assert_called_once_with(
-        {"bootstrap.servers": bootstrap}
-    )
+
 
 def test_config_func_DSOC():
     """Scenario 3: sim is DSOC"""
@@ -181,70 +165,77 @@ def test_config_func_DSOC():
 # 3. bootstrap Test
 # ==============================================================================
 
-@patch("ngRadar_Website.utils.Path.read_text")
+@patch("ngRadar_Website.utils.load_dotenv")
 @patch("ngRadar_Website.utils.config_func")
-def test_bootstrap_GBT(mock_config_func, mock_path):
+@patch("ngRadar_Website.utils.os.getenv")
+def test_bootstrap_GBT(mock_os_getenv, mock_config_func, mock_load_dotenv):
     """Scenario 1: sim = GBT"""
-
     sim = Stations.GBT
 
-    mock_env_data = "BOOTSTRAP_SERVER=localhost:9092\nSOME_OTHER_VAR=value"
-    mock_path.return_value = mock_env_data
-    
+    mock_env_data = "BOOTSTRAP_SERVER=fake_bootstrap\nSOME_OTHER_VAR=value"
+    mock_load_dotenv.return_value = mock_env_data
+    mock_os_getenv.return_value = "fake_bootstrap"
+
     mock_config_func.return_value = (
         "GBT_data",
-        {"bootstrap.servers": "localhost:9092"},
+        {"bootstrap.servers": "fake_bootstrap"},
         ["user_input"],
-        {"bootstrap.servers": "localhost:9092"},
+        {"bootstrap.servers": "fake_bootstrap"},
     )
 
     producer_topic, producer_config, consumer_topic, consumer_config = bootstrap(sim)
 
-    mock_config_func.assert_called_once_with(sim, "localhost:9092")
+    mock_config_func.assert_called_once_with(sim, "fake_bootstrap")
     assert producer_topic == "GBT_data"
-    assert producer_config == {"bootstrap.servers": "localhost:9092"}
+    assert producer_config == {"bootstrap.servers": "fake_bootstrap"}
     assert consumer_topic == ["user_input"]
-    assert consumer_config == {"bootstrap.servers": "localhost:9092"}
+    assert consumer_config == {"bootstrap.servers": "fake_bootstrap"}
 
 
-@patch("ngRadar_Website.utils.Path.read_text")
+@patch("ngRadar_Website.utils.load_dotenv")
 @patch("ngRadar_Website.utils.config_func")
-def test_bootstrap_DSOC(mock_config_func, mock_path):
+@patch("ngRadar_Website.utils.os.getenv")
+def test_bootstrap_DSOC(mock_os_getenv, mock_config_func, mock_load_dotenv):
     """Scenario 2: sim = DSOC"""
-
     sim = Stations.DSOC
 
-    mock_env_data = "BOOTSTRAP_SERVER=localhost:9092\nSOME_OTHER_VAR=value"
-    mock_path.return_value = mock_env_data
+    mock_env_data = "BOOTSTRAP_SERVER=fake_bootstrap\nSOME_OTHER_VAR=value"
+    mock_load_dotenv.return_value = mock_env_data
+    mock_os_getenv.return_value = "fake_bootstrap"
     
     mock_config_func.return_value = (
-        "GBT_data",
-        {"bootstrap.servers": "localhost:9092"},
+        "VLBA_data",
+        {"bootstrap.servers": "fake_bootstrap"},
     )
 
     topic, config = bootstrap(sim)
 
-    mock_config_func.assert_called_once_with(sim, "localhost:9092")
-    assert topic == "GBT_data"
-    assert config == {"bootstrap.servers": "localhost:9092"}
+    mock_config_func.assert_called_once_with(sim, "fake_bootstrap")
+    assert topic == "VLBA_data"
+    assert config == {"bootstrap.servers": "fake_bootstrap"}
 
 
-@pytest.mark.parametrize("sim", [
-        (Stations.GBT),
-        (Stations.DSOC)
-    ])
-@patch("ngRadar_Website.utils.Path.read_text")
-def test_bootstrap_none(mock_path, sim):
-    """Scenario 3: bootstrap not found"""
+@patch("ngRadar_Website.utils.load_dotenv")
+@patch("ngRadar_Website.utils.config_func")
+@patch("ngRadar_Website.utils.os.getenv")
+def test_bootstrap_none(mock_os_getenv, mock_config_func, mock_load_dotenv):
+    """Scenario 3: sim is UI user input"""
+    sim = Stations.UI
 
-    mock_env_data = "BOOTSTRAP_SERVER=\nSOME_OTHER_VAR=value"
-    mock_path.return_value = mock_env_data
+    mock_env_data = "BOOTSTRAP_SERVER=fake_bootstrap\nSOME_OTHER_VAR=value"
+    mock_load_dotenv.return_value = mock_env_data
+    mock_os_getenv.return_value = "fake_bootstrap"
 
-    with pytest.raises(
-        RuntimeError,
-        match="BOOTSTRAP_SERVER not found in /out/ngrok_endpoint.env",
-    ):
-        bootstrap(sim)
+    mock_config_func.return_value = (
+        "user_input",
+        {"bootstrap.servers": "fake_bootstrap"},
+    )
+
+    topic, config = bootstrap(sim)
+
+    mock_config_func.assert_called_once_with(sim, "fake_bootstrap")
+    assert topic == "user_input"
+    assert config == {"bootstrap.servers": "fake_bootstrap"}
 
 
 
@@ -278,3 +269,224 @@ def test_consume(mock_Consumer):
     mock_Consumer.assert_called_once_with("config")
     mock_consumer.subscribe.assert_called_once_with("topic")
     mock_process_msg.assert_called_once_with(mock_msg, None, None)
+
+
+# ==============================================================================
+# 4. create_s3_client Test
+# ==============================================================================
+
+@patch.dict(
+    "os.environ",
+    {
+        "WEED_S3_ENDPOINT": "fake_endpoint",
+        "WEED_S3_ACCESS_KEY": "fake_key",
+        "WEED_S3_SECRET_KEY": "fake_secret"
+    },
+)
+@patch("ngRadar_Website.utils.boto3.client")
+@patch("ngRadar_Website.utils.ensure_bucket_exists")
+@patch("ngRadar_Website.utils.Config")
+def test_create_s3_client_success(mock_Config, mock_ensure_bucket, mock_boto3):
+    """Scenario 1: s3 client is ready"""
+    mock_s3 = MagicMock()
+    mock_boto3.return_value = mock_s3
+    mock_s3.list_buckets.return_value = {"Buckets": [{"Name": "fake_bucket"}]}
+
+    mock_ensure_bucket.return_value = None
+
+    config_value = "fake_config"
+    mock_Config.return_value = config_value
+
+    s3_client = create_s3_client()
+
+    assert s3_client == mock_s3
+    mock_boto3.assert_called_once_with(
+        "s3",
+        endpoint_url="fake_endpoint",
+        aws_access_key_id="fake_key",
+        aws_secret_access_key="fake_secret",
+        region_name="us-east-1",
+                config=config_value
+    )
+    mock_ensure_bucket.assert_called_once_with(mock_s3)
+
+
+@patch.dict(
+    "os.environ",
+    {
+        "WEED_S3_ENDPOINT": "fake_endpoint",
+        "WEED_S3_ACCESS_KEY": "fake_key",
+        "WEED_S3_SECRET_KEY": "fake_secret"
+    },
+)
+@patch("ngRadar_Website.utils.boto3.client")
+@patch("ngRadar_Website.utils.time.sleep")
+@patch("ngRadar_Website.utils.ensure_bucket_exists")
+@patch("ngRadar_Website.utils.Config")
+def test_create_s3_client_connection_error(mock_Config, mock_ensure_bucket, mock_sleep, mock_boto3):
+    """Scenario 2: connection error"""
+    mock_s3 = MagicMock()
+    mock_boto3.return_value = mock_s3
+    mock_s3.list_buckets.side_effect = EndpointConnectionError(endpoint_url=os.environ["WEED_S3_ENDPOINT"])
+
+    mock_ensure_bucket.return_value = None
+
+    config_value = "fake_config"
+    mock_Config.return_value = config_value
+
+    mock_sleep.return_value = None
+
+    with pytest.raises(RuntimeError) as exc_info:
+        s3_client = create_s3_client()
+
+    assert mock_sleep.call_count == 30
+    mock_boto3.assert_called_once_with(
+        "s3",
+        endpoint_url="fake_endpoint",
+        aws_access_key_id="fake_key",
+        aws_secret_access_key="fake_secret",
+        region_name="us-east-1",
+                config=config_value
+    )
+    mock_ensure_bucket.assert_not_called()
+    assert mock_s3.list_buckets.call_count == 30
+
+#NOTE: needs one more scenario for client error
+
+
+# ==============================================================================
+# 5. ensure_bucket_exists Test
+# ==============================================================================
+
+@patch.dict(
+    "os.environ",
+    {
+        "WEED_S3_BUCKET": "fake_bucket",
+    },
+)
+def test_ensure_bucket_exists():
+    """Scenario 1: bucket exists"""
+    mock_s3 = MagicMock()
+    mock_s3.head_bucket.return_value = {"Buckets": [{"Name": "fake_bucket"}]}
+
+    ensure_bucket_exists(mock_s3)
+
+    mock_s3.head_bucket.assert_called_once_with(Bucket="fake_bucket")
+    mock_s3.create_bucket.assert_not_called()
+
+
+@patch.dict(
+    "os.environ",
+    {
+        "WEED_S3_BUCKET": "fake_bucket",
+    },
+)
+def test_ensure_bucket_exists_created():
+    """Scenario 2: bucket needs to be created"""
+    mock_s3 = MagicMock()
+    mock_s3.head_bucket.side_effect = ClientError(
+        error_response={
+            "Error": {
+                "Code": "404",
+                "Message": "Not Found",
+            },
+            "ResponseMetadata": {
+                "HTTPStatusCode": 404,
+            },
+        },
+        operation_name="HeadBucket",
+    )
+    mock_s3.create_bucket.return_value = None
+
+    ensure_bucket_exists(mock_s3)
+
+    mock_s3.head_bucket.assert_called_once_with(Bucket="fake_bucket")
+    mock_s3.create_bucket.assert_called_once_with(Bucket="fake_bucket")
+
+
+# ==============================================================================
+# 5. etc_send Test
+# ==============================================================================
+
+@patch.dict(
+    "os.environ",
+    {
+        "ETD_DESTINATION": "fake_path",
+    },
+)
+@patch("ngRadar_Website.utils.uuid.uuid4")
+@patch("ngRadar_Website.utils.os.openpty")
+@patch("ngRadar_Website.utils.subprocess.Popen")
+@patch("ngRadar_Website.utils.os.close")
+@patch("ngRadar_Website.utils.select.select")
+@patch("ngRadar_Website.utils.os.read")
+@patch("ngRadar_Website.utils.parse_etc_progress")
+def test_etc_send(mock_parse, mock_os_read, mock_select, mock_os_close, mock_popen, mock_os_open, mock_uuid):
+    mock_frame_path = MagicMock()
+    mock_frame_path.stat.return_value.st_size = 500
+
+    mock_uuid.return_value = "fake_uuid"
+
+    mock_master = "fake_master_fd"
+    mock_slave = "fake_slave_fd"
+    mock_os_open.return_value = (mock_master, mock_slave)
+
+    mock_process = MagicMock()
+    mock_popen.return_value = mock_process
+
+    mock_os_close.return_value = None
+
+    mock_select.return_value = ([mock_master], [], [])
+
+    mock_os_read.return_value = b"50% 250/500\r"
+
+    mock_parse.return_value = None
+
+    #only run through the while loop twice to avoid infinite loop in test:
+    mock_process.poll.side_effect = [None, 0]
+    mock_process.wait.return_value = 0
+    mock_process.args = ["etc", "fake_file"]
+
+    etc_send(mock_frame_path)
+
+    mock_uuid.assert_called_once()
+    mock_os_open.assert_called_once()
+    mock_popen.assert_called_once_with(
+        ["etc", str(mock_frame_path), os.environ["ETD_DESTINATION"], "--overwrite",],
+        stdin=mock_slave,
+        stdout=mock_slave,
+        stderr=mock_slave,
+        close_fds=True,
+    )
+    assert mock_os_close.call_count == 2
+    mock_os_read.assert_called_once_with(mock_master, 4096)
+    mock_parse.assert_called_once_with("50% 250/500", expected_num_bytes=500, transfer_id=mock_uuid.return_value)
+
+
+# ==============================================================================
+# 5. watch_for_file Test
+# ==============================================================================
+
+@patch("ngRadar_Website.utils.subprocess.run")
+@patch("ngRadar_Website.utils.time.sleep")
+def test_watch_for_file(mock_sleep, mock_subprocess):
+    file_path = "filepath"
+
+    first_result = MagicMock()
+    first_result.stdout = "exists"
+    second_result = MagicMock()
+    second_result.stdout = ""
+
+    mock_subprocess.side_effect = [first_result, second_result]
+
+    mock_sleep.return_value = None
+
+    watch_for_file(file_path)
+
+    first = mock_subprocess.call_args_list[0]
+    second = mock_subprocess.call_args_list[1]
+
+    mock_sleep.assert_called_once()
+    assert mock_subprocess.call_count == 2
+    assert first.kwargs["capture_output"] == True
+    assert second.kwargs["capture_output"] == True

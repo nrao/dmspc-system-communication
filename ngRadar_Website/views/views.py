@@ -186,7 +186,7 @@ def latency_graphing(request):
 def serve_image(request, uuid):
     event = get_object_or_404(ObservatoryEvent, uuid=uuid)
 
-    bucket = bucket = os.environ["WEED_S3_BUCKET"]
+    bucket = os.environ["WEED_S3_BUCKET"]
 
     s3 = create_s3_client()
 

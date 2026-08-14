@@ -103,47 +103,34 @@ with patch("pathlib.Path.read_text", return_value=mock_env_data):
 @patch.dict(
     "os.environ",
     {
-        "WEED_S3_INTERNAL_DOMAIN": "seaweedfs.fake.com",
-        "WEED_S3_ACCESS_KEY": "fake_access_key",
-        "WEED_S3_SECRET_KEY": "fake_key",
-        "WEED_S3_BUCKET": "fake_bucket",
-        "WEED_S3_PUBLIC_DOMAIN": "fake_domain"
+        "WEED_S3_BUCKET": "fake_bucket"
     },
 )
 @patch("ngRadar_Website.views.views.get_object_or_404")
-@patch("ngRadar_Website.views.views.boto3")
-@patch("ngRadar_Website.views.views.Config")
-def test_serve_image(mock_Config, mock_boto3, mock_get_obj):
+@patch("ngRadar_Website.views.views.create_s3_client")
+def test_serve_image(mock_create, mock_get_obj):
 
     mock_event = MagicMock()
     mock_event.image_key = "images/test.png"
     mock_get_obj.return_value = mock_event
 
-    mock_config = MagicMock()
-    mock_Config.return_value = mock_config
-
-    #creating the fake boto3.client:
     mock_s3 = MagicMock()
-    mock_boto3.client.return_value = mock_s3
-
-    #set the internal url using our fake WEED_S3_INTERNAL_DOMAIN:
-    internal_url = (
-        "http://seaweedfs.fake.com/fake_bucket/images/test.png"
-    )
-    mock_s3.generate_presigned_url.return_value = internal_url
+    mock_create.return_value = mock_s3
+    mock_s3.get_object.return_value = {
+        "Body": MagicMock(
+            read=MagicMock(return_value=b"fake_image_data")
+        ),
+        "ContentType": "image/png",
+    }
 
     #call the function:
     output = serve_image(request = "request", uuid = "uuid")
 
-    #assert that the WEED_S3_PUBLIC_DOMAIN variable was used to update the url:
-    assert output.url == "http://fake_domain/fake_bucket/images/test.png"
-    mock_boto3.client.assert_called_once_with(
-            "s3",
-            endpoint_url="seaweedfs.fake.com",
-            aws_access_key_id="fake_access_key",
-            aws_secret_access_key="fake_key",
-            config = mock_config
-        ) #checking that an S3 client was created
+    mock_get_obj.assert_called_once_with(ObservatoryEvent, uuid="uuid")
+    mock_create.assert_called_once()
+    mock_s3.get_object.assert_called_once_with(
+        Bucket="fake_bucket", Key="images/test.png"
+    )
 
 
 # ==============================================================================
