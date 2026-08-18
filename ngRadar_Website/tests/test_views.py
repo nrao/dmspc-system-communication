@@ -143,9 +143,9 @@ def test_serve_image(mock_Config, mock_boto3, mock_get_obj):
         ) #checking that an S3 client was created
 
 
-# ==============================================================================
+# ===============================================================================
 # 3. Submit waveform test
-# ==============================================================================
+# ===============================================================================
 @patch("ngRadar_Website.views.views.uuid.uuid4")
 @patch("ngRadar_Website.views.views.datetime")
 @patch("ngRadar_Website.views.views.waveform_producer")
