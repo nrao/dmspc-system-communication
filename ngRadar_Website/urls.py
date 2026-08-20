@@ -12,6 +12,7 @@ urlpatterns = [
     path('home/submit-waveform/', views.submit_waveform, name='submit_waveform'),
     path('home/lock-status/', views.lock_status, name='lock_status'),
     path("home/image/<uuid:uuid>/", views.serve_image, name="serve_image"),
+    path("progress/stream/", views.progress_sse, name="progress_sse"),
 
     # Dashboard page URLs
     path('dashboard/', views.dashboard_view, name='dashboard_home'),
@@ -20,5 +21,4 @@ urlpatterns = [
     
     # Logout paths 
     path('logout/', views.logout_view, name='logout'),
-    path('logout/message_screen/', views.logging_out_message, name='logout_message')
 ]

@@ -6,8 +6,9 @@ class NgradarWebAppConfig(AppConfig):
     name = 'ngRadar_Website'
 
     def ready(self):
-        from ngRadar_Website.models.models import dsocEvent, gbtEvent
-        from ngRadar_Website.signals import create_observatory_from_dsoc, create_observatory_from_gbt
+        from ngRadar_Website.models.models import dsocEvent, gbtEvent, ETransferEvent
+        from ngRadar_Website.signals import create_obsevent_from_gbt, create_obsevent_from_dsoc, create_obsevent_from_etransfer
         
-        post_save.connect(create_observatory_from_gbt, sender=gbtEvent, weak=False)
-        post_save.connect(create_observatory_from_dsoc, sender=dsocEvent, weak=False)
+        post_save.connect(create_obsevent_from_gbt, sender=gbtEvent, weak=False)
+        post_save.connect(create_obsevent_from_dsoc, sender=dsocEvent, weak=False)
+        post_save.connect(create_obsevent_from_etransfer, sender=ETransferEvent, weak=False)

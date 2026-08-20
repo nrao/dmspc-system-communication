@@ -7,3 +7,6 @@ __pycache__/
 venv/
 .venv/
 env/
+*.large
+mock_assets/progress.json
+.coverage

@@ -1,20 +1,25 @@
 #libraries to get files from the outside directory
-import sys
-from pathlib import Path
 from django.db import models
 import uuid
-from ngRadar_Website.enums import Stations
+from ngRadar_Website.enums import Stations, Status
 
 
 
 class ObservatoryEvent(models.Model):
     # History table for all events from both gbtEvent and dsocEvent tables
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    object_id = models.CharField(max_length=100)
-    target = models.CharField(max_length=100)
+    object_id = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+    )
+    target = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+    )
     tx_waveform = models.CharField(max_length=100, blank=True, null=True)
     rec_waveform = models.CharField(max_length=100, blank=True, null=True)
-
     product_type = models.CharField(max_length=50, blank=True, null=True)
     product_id = models.CharField(max_length=100, blank=True, null=True)
     station = models.PositiveSmallIntegerField(
@@ -30,16 +35,25 @@ class ObservatoryEvent(models.Model):
     blank=True,
     null=True,
     )
-
     rcvr_station = models.IntegerField(
         choices=Stations.choices,
         blank=True,
         null=True,
     )
-    
     image_key = models.CharField(max_length=500, blank=True, null=True)
     num_bytes = models.IntegerField(blank=True, null=True)
     latency_ms = models.FloatField(default=0.0)
+    transfer_uuid = models.UUIDField(
+        blank=True,
+        null=True,
+        db_index=True,
+    )
+    status = models.PositiveSmallIntegerField(
+        choices=Status.choices,
+        blank=True,
+        null=True,
+    )
+    message = models.TextField(blank=True, null=True, default="")
 
 
     def __str__(self):
@@ -67,6 +81,27 @@ class dsocEvent(models.Model):
     num_bytes = models.IntegerField()
     event_time = models.DateTimeField()
     latency_ms = models.FloatField(default=0.0)
+    xmit_station = models.PositiveSmallIntegerField(
+        choices=Stations.choices,
+        blank=True,
+        null=True,
+    )
+    rcvr_station = models.PositiveSmallIntegerField(
+        choices=Stations.choices,
+        blank=True,
+        null=True,
+    )
+    transfer_uuid = models.UUIDField(
+        blank=True,
+        null=True,
+        db_index=True,
+    )
+    status = models.PositiveSmallIntegerField(
+        choices=Status.choices,
+        blank=True,
+        null=True,
+    )
+    message = models.TextField(blank=True, null=True, default="")
 
     def __str__(self):
         return f"DSOC Event: {self.object_id} | {self.event_time}"
@@ -82,8 +117,51 @@ class uiEvent(models.Model):
         return f"UI Event: {self.selected_waveform} | {self.event_time}"
     
     
-class ngrok_endpoint(models.Model):
-    bootstrap = models.CharField()
 
-    def __str__(self):
-        return f"ngrok endpoint: {self.bootstrap}"
+
+
+class ETransferEvent(models.Model):
+    # Unique ID for the individual status event
+    uuid = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+    # Shared by every status event for the same transfer
+    transfer_uuid = models.UUIDField(
+        db_index=True,
+        editable=False,
+    )
+    gbt_uuid = models.UUIDField(
+        blank=True,
+        null=True,
+        db_index=True,
+    )
+    object_id = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+    )
+    target = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+    )
+    station = models.PositiveSmallIntegerField(
+        choices=Stations.choices,
+        blank=True,
+        null=True,
+    )
+    event_time = models.DateTimeField()
+    latency_ms = models.FloatField(default=0.0)
+    num_bytes = models.BigIntegerField(default=0)
+    status = models.PositiveSmallIntegerField(
+        choices=Status.choices,
+    )
+    message = models.TextField(blank=True, null=True, default="")
+
+    class Meta:
+        ordering = ["event_time"]
+        indexes = [
+            models.Index(fields=["transfer_uuid", "event_time"]),
+        ]

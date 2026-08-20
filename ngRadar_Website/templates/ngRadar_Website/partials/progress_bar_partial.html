@@ -1,0 +1,20 @@
+<div class="mt-4 border rounded pt-3 pb-3 bg-white ps-3 pe-3 text-center mx-auto"
+style="max-width: 50rem;">
+  <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+    <div>Transfer progress</div>
+    <div id="statusText">0%</div>
+  </div>
+
+  <div style="height: 20px; background:#eee; border-radius: 10px; overflow:hidden;">
+    <div
+      id="bar"
+      style="height:100%; width:0%; background:#3b82f6; transition: width 0.2s ease;"
+    ></div>
+  </div>
+
+  <div style="margin-top:8px; font-family: monospace; font-size: 12px;" id="bytesText">
+    received: 0 / total: 0
+  </div>
+</div>
+<!-- Progress bar javascript moved to seperate file -->
+<script src="../../../static/ngRadar_Website/js/progress_bar_script.js"></script>

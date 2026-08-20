@@ -9,21 +9,8 @@
     <div class="fs-5">
         <strong style="font-weight: 700 !important;">Current Time in UTC:</strong> <span id="live-clock"></span>
     </div>
-    <script>
-        function getTime() {
-            const now = new Date();
-            const year = now.getUTCFullYear();
-            const month = String(now.getUTCMonth() + 1).padStart(2, '0');
-            const day = String(now.getUTCDate()).padStart(2, '0');
-            const hours = String(now.getUTCHours()).padStart(2, '0');
-            const minutes = String(now.getUTCMinutes()).padStart(2, '0');
-            const seconds = String(now.getUTCSeconds()).padStart(2, '0');
-            const formattedTimestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-            document.getElementById('live-clock').textContent = formattedTimestamp;
-        }
-        getTime();
-        setInterval(getTime, 1000);
-    </script>
+    <!-- JS for the live clock -->
+    <script src="../../static/ngRadar_Website/js/home_live_clock_script.js"></script>
 </div>
   
 
@@ -73,6 +60,12 @@
      class="w-100 mb-4">
     {% include 'ngRadar_Website/partials/gbt_home_partial.html' %}
 </div>
+
+<div id="progress_bar_partial"
+    class="w-100 mb-4"></div>
+    {% include 'ngRadar_Website/partials/progress_bar_partial.html' %}
+</div>
+
 
 <!-- Row 4: DSOC Partial - HTMX: 1 second refresh -->
 <div id="home-dsoc-partial" 

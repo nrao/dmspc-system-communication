@@ -12,6 +12,7 @@
                         <th class ="py-3">Rcvr Station</th>
                         <th class ="py-3">Tx Waveform</th>
                         <th class ="py-3">Rec Waveform</th>
+                        <th class ="py-3">Status</th>
                         <th class ="py-3">Payload</th>
                         <th class ="py-3">Timestamp</th>
                     </tr>
@@ -48,6 +49,91 @@
                                 <span class="text-success fw-bold">{{ latest_event.rec_waveform|default:"-" }}</span>
                             {% else %}
                                 <span class="text-danger fw-bold">{{ latest_event.rec_waveform|default:"-" }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if latest_event.status == 1 %}
+                                <span
+                                    class="badge rounded-pill bg-success"
+                                    data-bs-toggle="tooltip"
+                                    data-bs-trigger="hover"
+                                    data-bs-delay='{"show":100,"hide":50}'
+                                    title="{{ latest_event.message }}"
+                                >
+                                    {{ latest_event.get_status_display }}
+                                </span>
+                            {% elif latest_event.status == 2 %}
+                               <span
+                                    class="badge rounded-pill bg-secondary"
+                                    data-bs-toggle="tooltip"
+                                    data-bs-trigger="hover"
+                                    data-bs-delay='{"show":100,"hide":50}'
+                                    title="{{ latest_event.message }}"
+                                >
+                                    {{ latest_event.get_status_display|default:"-" }}
+                                </span>
+                            {% elif latest_event.status == 3 %}
+                                <span
+                                    class="badge rounded-pill bg-secondary"
+                                    data-bs-toggle="tooltip"
+                                    data-bs-trigger="hover"
+                                    data-bs-delay='{"show":100,"hide":50}'
+                                    title="{{ latest_event.message }}"
+                                >
+                                    {{ latest_event.get_status_display|default:"-" }}
+                                </span>
+                            {% elif latest_event.status == 4 %}
+                                <span
+                                    class="badge rounded-pill bg-primary"
+                                    data-bs-toggle="tooltip"
+                                    data-bs-trigger="hover"
+                                    data-bs-delay='{"show":100,"hide":50}'
+                                    title="{{ latest_event.message }}"
+                                >
+                                    {{ latest_event.get_status_display|default:"-" }}
+                                </span>
+                            {% elif latest_event.status == 5 %}
+                                <span
+                                    class="badge rounded-pill bg-primary"
+                                    data-bs-toggle="tooltip"
+                                    data-bs-trigger="hover"
+                                    data-bs-delay='{"show":100,"hide":50}'
+                                    title="{{ latest_event.message }}"
+                                >
+                                    {{ latest_event.get_status_display|default:"-" }}
+                                </span>
+                            {% elif latest_event.status == 6 %}
+                                <span
+                                    class="badge rounded-pill bg-success"
+                                    data-bs-toggle="tooltip"
+                                    data-bs-trigger="hover"
+                                    data-bs-delay='{"show":100,"hide":50}'
+                                    title="{{ latest_event.message }}"
+                                >
+                                    {{ latest_event.get_status_display|default:"-" }}
+                                </span>
+                            {% elif latest_event.status == 7 %}
+                               <span
+                                    class="badge rounded-pill bg-danger"
+                                    data-bs-toggle="tooltip"
+                                    data-bs-trigger="hover"
+                                    data-bs-delay='{"show":100,"hide":50}'
+                                    title="{{ latest_event.message }}"
+                                >
+                                    {{ latest_event.get_status_display|default:"-" }}
+                                </span>
+                            {% elif latest_event.status == 8 %}
+                                <span
+                                    class="badge rounded-pill bg-success"
+                                    data-bs-toggle="tooltip"
+                                    data-bs-trigger="hover"
+                                    data-bs-delay='{"show":100,"hide":50}'
+                                    title="{{ latest_event.message }}"
+                                >
+                                    {{ latest_event.get_status_display|default:"-" }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">-</span>
                             {% endif %}
                         </td>
                         <td>

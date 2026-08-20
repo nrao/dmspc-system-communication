@@ -18,18 +18,6 @@
   --color-primitives-brand-300: rgba(217, 217, 217, 1);
 }
 
-/*
-
-To enable a theme in your HTML, simply add one of the following data attributes to an HTML element, like so:
-
-<body data-color-mode="SDS-light">
-    <!-- the rest of your content -->
-</body>
-
-You can apply the theme on any DOM node, not just the `body`
-
-*/
-
 [data-color-mode="SDS-light"] {
   --color-text-brand-on-brand: var(--color-primitives-brand-100);
   --color-background-brand-default: var(--color-primitives-brand-800);

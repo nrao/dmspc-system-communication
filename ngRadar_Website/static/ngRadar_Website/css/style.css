@@ -365,3 +365,31 @@
     overflow-x: auto;
   }
 }
+
+
+/* Bootstrap tooltip styles: */
+.tooltip .tooltip-inner {
+    background-color: #6c757d;
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 400;
+    line-height: 1.2;
+    padding: 0.2rem 0.45rem;
+    max-width: 180px;
+}
+
+.tooltip.bs-tooltip-top .tooltip-arrow::before {
+    border-top-color: #6c757d;
+}
+
+.tooltip.bs-tooltip-bottom .tooltip-arrow::before {
+    border-bottom-color: #6c757d;
+}
+
+.tooltip.bs-tooltip-start .tooltip-arrow::before {
+    border-left-color: #6c757d;
+}
+
+.tooltip.bs-tooltip-end .tooltip-arrow::before {
+    border-right-color: #6c757d;
+}

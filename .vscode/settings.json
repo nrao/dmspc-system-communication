@@ -4,7 +4,7 @@
     "python.analysis.extraPaths": [
         "${workspaceFolder}"
     ],
-    "python-envs.defaultEnvManager": "ms-python.python:pyenv",
+    "python-envs.defaultEnvManager": "ms-python.python:venv",
     "python.testing.pytestArgs": [
         "ngRadar_Website"
     ],
