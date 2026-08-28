@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
 import uuid
-# from confluent_kafka.admin import AdminClient, NewTopic, KafkaException, KafkaError
+from confluent_kafka.admin import AdminClient
 from dotenv import load_dotenv
-from ngRadar_Website.enums import Stations
-from confluent_kafka import Consumer, Producer
+from ngRadar_Website.enums import Stations, Status
+from ngRadar_Website.models.models import gbtEvent, dsocEvent, ETransferEvent, ObservatoryEvent
+from confluent_kafka import Consumer, Producer, KafkaError
 import boto3
 import os
 import time
@@ -20,6 +21,7 @@ from botocore.exceptions import (
     ClientError,
 )
 from pathlib import Path
+from confluent_kafka import Producer
 
 # regex patterns to match the progress output of the etc command
 PROGRESS_RE = re.compile(
@@ -31,18 +33,22 @@ PROGRESS_RE = re.compile(
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 
 #Program constants
-SESSION_TIMEOUT_MS = 45000
+SESSION_TIMEOUT_MS = 10000
 MAX_BYTES = 8388608
 
 
-def latency_calc(event_time, sim=None):
+def latency_calc(event_time, sim=None, current_time=None):
     """
     Description: Calculates the latency of the message from the time it was sent to the time it was received
     Inputs: event_time = Time in the past. This is the time when the 'stopwatch' starts on our latency calculation
             sim = the sim file in use (GBT or DSOC)
     Returns: latency_ms = Latency in milliseconds
     """
-    current_time = datetime.now(timezone.utc)
+    if current_time is None:
+        current_time = datetime.now(timezone.utc)
+    else:
+        current_time = current_time
+
     if sim == Stations.GBT:
         if event_time == -1:
                 latency_ms = 0 #NOTE We are currently setting latency = 0 for the very first gbt payload, which is not triggered by a UI event. I want to make this a Null field in the future (will require a migration)
@@ -79,9 +85,6 @@ def config_func(sim, bootstrap):
             # DSOC is now consuming from and producing to VLBA
             topic1 = ["VLBA_notif"]  #consumes from the GBT's topic
             topic2 = "DSOC_notif"
-    elif sim == Stations.ETR:
-        type = "consumer"
-        topic = ["GBT_data"]
     else:  # sim == Stations.UI:
         # UI produces to UI topic
         type = "producer"
@@ -89,30 +92,12 @@ def config_func(sim, bootstrap):
 
     # perform the shared behavior for each type:
     if type == "producer and consumer":
-        # # config for both producer and consumer sims
-        # print("BOOTSTRAP =", bootstrap)
-        # admin = AdminClient({"bootstrap.servers": bootstrap})
-        # topics = [
-        #     NewTopic(topic1, num_partitions=3, replication_factor=1),
-        #     NewTopic(topic2, num_partitions=1, replication_factor=1),
-        # ]
-        # fs = admin.create_topics(topics, request_timeout=30)
 
-        # for topic, f in fs.items():
-        #     # f is a Future; result() will raise if creation failed for reasons other than "already exists"
-        #     try:
-        #         f.result()
-        #         print(f"Created topic {topic}")
-        #     # handle the case where it tried to create a topic that already exists:
-        #     except KafkaException as e:
-        #         if e.args[0].code() != KafkaError.TOPIC_ALREADY_EXISTS:
-        #             print(f"Failed creating topic {topic}: {e!r}")
-        #             raise
-        
         producer_topic = topic2  # NOTE The topic to which the messages will be sent, rename accordingly to whatever topic you want to send to
         producer_config = {
             "bootstrap.servers": bootstrap,
             "message.max.bytes": MAX_BYTES,# NOTE can make this constant
+            "message.timeout.ms": 2000,
             "client.id": f"{sim.name.lower()}-producer",
         }
 
@@ -126,23 +111,23 @@ def config_func(sim, bootstrap):
             "auto.offset.reset": "earliest",
         }  # TODO make sure this works
         return producer_topic, producer_config, consumer_topic, consumer_config
-    elif type == "consumer":
-        # config for just consumer
+    # elif type == "consumer": #NOTE Not being used right now. Commented out to help testcov
+    #     # config for just consumer
         
-        config = {
-            "bootstrap.servers": bootstrap,
-            "fetch.max.bytes": MAX_BYTES,
-            "session.timeout.ms": SESSION_TIMEOUT_MS,
-            "client.id": f"{sim.name.lower()}-consumer",
-            "group.id": f"{sim.name.lower()}-consumer-group",
-            "auto.offset.reset": "earliest",
-        }
+    #     config = {
+    #         "bootstrap.servers": bootstrap,
+    #         "fetch.max.bytes": MAX_BYTES,
+    #         "session.timeout.ms": SESSION_TIMEOUT_MS,
+    #         "client.id": f"{sim.name.lower()}-consumer",
+    #         "group.id": f"{sim.name.lower()}-consumer-group",
+    #         "auto.offset.reset": "earliest",
+    #     }
     else:  # type == "producer"
         # config for just producer
-
         config = {
             "bootstrap.servers": bootstrap,
             "message.max.bytes": MAX_BYTES,
+            "message.timeout.ms": 2000,
             "client.id": f"{sim.name.lower()}-producer",
         }
 
@@ -186,38 +171,60 @@ def bootstrap(sim):
 #     load_dotenv(override=True)
 
 
-def consume(topic, config, process_msg, producer_topic=None, producer_config=None):
+def consume(topic, config, process_msg, producer_topic=None, producer_config=None, manual_commit=False):
     """
     Description: Creates a new consumer instance; subscribes to a Kafka topic and receives messages.
     Inputs: topic = The Kafka topic to receieve messages from.
             config = Server configuration defining the bootstrap, byte and timeout limits, and IDs.
             process_msg = A function which accepts the Kafka message as an input.
+            manual_commit = If True, a message is only marked done once process_msg returns True,
+                so work killed mid e-transfer is redelivered on restart and etc --resume picks up
+                the partial file. Callers that opt in MUST have process_msg return True/False.
     Returns: N/A
     """
-
-    consumer = Consumer(config)
-
-    #subscribes to the specified topic
-    consumer.subscribe(topic)
-    # TODO make sure works with multiple topics
-    
     try:
+        if manual_commit:
+            # Copy rather than mutate: bootstrap() hands the same config dict to other callers.
+            config = {**config, "enable.auto.commit": False}
+
+        consumer = Consumer(config)
+
+        #subscribes to the specified topic
+        consumer.subscribe(topic)
+        # TODO make sure works with multiple topics
+    
         while True:
             #consumer polls the topic and prints any incoming messages
             msg = consumer.poll(1.0) #polls for messages for 1 second
             
             if msg is None:
                 continue
-            if msg.error() is not None:
-                print("Consumer error:", msg.error())
-                continue
+            if msg.error():
+                error = msg.error()
+
+                if error.code() == KafkaError._PARTITION_EOF:
+                    print("Consumer reached partition EOF")
+                    continue
+
+                print("Consumer error:", error)
+
+                publish_status_obsEvents(
+                    status=Status.FAILED,
+                    msg="Failed to connect to Kafka.",
+                )
+
+                break
 
             #if msg is not None and msg.error() is None:
-            process_msg(msg, producer_topic, producer_config)
+            succeeded = process_msg(msg, producer_topic, producer_config)
+
+            if manual_commit and succeeded:
+                consumer.commit(msg)
     except Exception as e:
-        import traceback
-        print("An unhandled exception occurred in the consumer loop:")
-        traceback.print_exc()
+        publish_status_obsEvents(
+            status=Status.FAILED,
+            msg="Failed to connect to Kafka!",
+        )
         raise
 
 
@@ -239,19 +246,19 @@ def create_s3_client():
             s3={"addressing_style": "path"},
         ),
     )
-
-    for attempt in range(30):
+    # Change to range(5) if we want enough time to turn seaweed back on during polling
+    for attempt in range(3):
         try:
             s3.list_buckets()
             print("SeaweedFS S3 is ready.")
             break
 
         except (EndpointConnectionError, ConnectionError):
-            print(f"Waiting for SeaweedFS... ({attempt + 1}/30)")
-            time.sleep(2)
+            publish_status_obsEvents(status=Status.POLLING, msg=f"Waiting for SeaweedFS... ({attempt + 1}/3)")
+            print(f"Waiting for SeaweedFS... ({attempt + 1}/3)")
+            time.sleep(1)
 
         except ClientError as e:
-            # The S3 API is responding, so we're ready.
             print(f"SeaweedFS responded: {e.response['Error']['Code']}")
             break
     else:
@@ -322,8 +329,6 @@ def upload_seaweedfs(s3, image_key, file_data):
     return image_key
 
 
-
-
 #==========================
 # etransfer util functions
 #=========================
@@ -388,7 +393,49 @@ def parse_etc_progress(line, *, expected_num_bytes, transfer_id):
     # )
 
 
-# etransfer command to send data from client -> daemon 
+ETD_MAX_CONN_RETRY = 90     # 90 retries x 10s = waits up to 15 minutes
+ETD_RETRY_CONN_DELAY = 10
+
+
+def consumer_group_has_members(group_id):
+    """
+    Asks the Kafka broker whether anyone is still a member of group_id.
+
+    The broker drops a consumer that stops heartbeating after SESSION_TIMEOUT_MS,
+    so it is the only component that knows whether a sim is alive. A slow transfer
+    and a dead sim look identical from the outside, but not to the broker.
+
+    Inputs: group_id = the consumer group to look up, e.g. "hn-consumer-group"
+    Output: True if at least one member is in the group, False otherwise.
+    """
+    admin = AdminClient({"bootstrap.servers": os.environ["BOOTSTRAP_SERVER"]})
+    group = admin.describe_consumer_groups([group_id])[group_id].result()
+    return len(group.members) > 0
+
+
+def wait_for_etd():
+    """
+    Blocks until the e-transfer daemon at ETD_DESTINATION answers again.
+
+    etc --list is the detector: it exits 0 when the daemon replies, so we never
+    need etd's port number. etc's own retry flags do the waiting.
+
+    Output: True if the daemon came back, False if it never did.
+    """
+    result = subprocess.run(
+        [
+            "etc",
+            "--list",
+            os.environ["ETD_DESTINATION"],
+            "--max-conn-retry", str(ETD_MAX_CONN_RETRY),
+            "--retry-conn-delay", str(ETD_RETRY_CONN_DELAY),
+        ],
+        capture_output=True,
+    )
+    return result.returncode == 0
+
+
+# etransfer command to send data from client -> daemon
 def etc_send(frame_path):
     """
     Sends data from the client to the daemon using e-transfer.
@@ -398,11 +445,10 @@ def etc_send(frame_path):
     Input: 
         frame_path = Path to the file that we want to send to the daemon. On the client machine.
     Output: 
-        Command line output of the etc command, which will show the progress of the transfer and any errors that may occur. Overwrite flag used for now to demmonstrate sequencing even if same file is being sent multiple times.
-        Use --resume flag in production.
+        Command line output of the etc command, showing transfer progress and any errors.
+        Uses --resume. Each Kafka message gets a brand-new frame_path, so on a fresh transfer
+        --resume behaves like --overwrite; after an interruption it sends only the missing bytes.
     """
-
-    # Will need to add some logic here to determine when to use --overwrite vs --resume.
 
     expected_num_bytes = frame_path.stat().st_size
     transfer_id = str(uuid.uuid4())
@@ -421,7 +467,7 @@ def etc_send(frame_path):
             "etc",
             str(frame_path),
             os.environ["ETD_DESTINATION"],
-            "--overwrite",
+            "--resume",
         ],
         stdin=slave_fd,
         stdout=slave_fd,
@@ -493,16 +539,49 @@ def etc_send(frame_path):
 
 
 def produce(topic, config, key, value):
-    # creates a new producer instance
-    producer = Producer(config)
+    delivery_error = None
 
-    # producing a message to the specified topic 
-    producer.produce(topic, key=key, value=value)
-    print(f"Produced message to topic {topic} with key {key}.")
+    def delivery_report(err, msg):
+        nonlocal delivery_error
 
-    # send any outstanding or buffered messages to the Kafka broker
-    producer.flush()
+        if err is not None:
+            delivery_error = err
 
+    try:
+        # creates a new producer instance
+        producer = Producer(config)
+
+        # producing a message to the specified topic 
+        producer.produce(topic, key=key, value=value, callback=delivery_report)
+
+        # Give Kafka a limited amount of time to deliver the message
+        remaining = producer.flush(2)
+
+        if delivery_error is not None:
+            publish_status_obsEvents(
+                status=Status.FAILED,
+                msg=f"{delivery_error}",
+            )
+            return False
+
+        if remaining > 0:
+            publish_status_obsEvents(
+                status=Status.FAILED,
+                msg="Kafka broker did not respond.",
+            )
+            return False
+
+        print(f"Produced message to topic {topic} with key {key}.")
+        return True
+
+    except Exception as e:
+        publish_status_obsEvents(
+            status=Status.FAILED,
+            msg=f"Failed to send Kafka message: {e}",
+        )
+        return False
+
+    
 def send_kafka_message(
     *,
     key,
@@ -534,16 +613,18 @@ def send_kafka_message(
         json.dumps(payload),
     )
 
-
     
-def create_file(file_path):
-    file_mb = 100
+def create_file(file_path, file_mb=200):
     file_size_bytes = file_mb * 1024 * 1024
     num_buffers = 100
 
+    buffer_size = file_size_bytes // num_buffers
+    remainder = file_size_bytes % num_buffers
+
     with open(file_path, "wb") as file:
-        for _ in range(num_buffers):
-            buffer = random.randbytes(int(file_size_bytes / num_buffers))
+        for i in range(num_buffers):
+            size = buffer_size + (1 if i < remainder else 0)
+            buffer = random.randbytes(size)
             file.write(buffer)
 
     print(f"Successfully created a {file_mb}MB random binary file at {file_path}")
@@ -560,11 +641,73 @@ def watch_for_file(file_path):
 
         time.sleep(1)
 
+    # TODO SET ETRANSFER TO READY AND GIVE IT THIS FILE PATH
 
-def delete_observation_data(file_name):
-    file_path = Path("/raw_data") / file_name
+    
+def delete_observation_data(file_name, dir="/raw_data"):
+    file_path = Path(dir) / file_name
     if os.path.exists(file_path):
         os.remove(file_path)
         print(f"Successfully deleted {file_name}")
     else:
         print(f"File {file_name} does not exists")
+
+
+def get_folder_size(folder_path: Path):
+    if not folder_path.exists():
+        raise FileNotFoundError(folder_path)
+
+    total = sum(p.stat().st_size for p in folder_path.rglob("*") if p.is_file())
+    #print(f"Size of folder: {total} bytes")
+    return total
+
+  
+# Helper function to record the status of the e-transfer in the ETransferEvent table
+def record_transfer_event(
+    *,
+    transfer_uuid,
+    gbt_uuid,
+    station,
+    status,
+    num_bytes=0,
+    latency_ms=0.0,
+    message="",
+):
+    gbt_event = gbtEvent.objects.get(uuid=gbt_uuid)
+
+    return ETransferEvent.objects.create(
+        transfer_uuid=transfer_uuid,
+        gbt_uuid=gbt_uuid,
+        object_id=gbt_event.object_id,
+        target=gbt_event.target,
+        station=station,
+        event_time=datetime.now(timezone.utc),
+        latency_ms=latency_ms,
+        num_bytes=num_bytes,
+        status=status,
+        message=message,
+    )
+
+def publish_status_obsEvents(status, msg):
+    """
+    Function to be used by all sims to publish failure status and message to the ObservatoryEvent database table.
+    """
+
+    data = {
+        "object_id": 30104,
+        "target": "Moretus",
+        "rcvr_station": Stations.HN,
+        "xmit_station": Stations.GBT,
+        "event_time": datetime.now(timezone.utc),
+        "latency_ms": 0.00,
+        "status": status,
+        "message": msg,
+    }
+
+    try:
+        # Create and capture the instantiated record model
+        record = ObservatoryEvent.objects.create(**data)
+        print("Status saved to database successfully.")
+    
+    except Exception as e:
+        print(f"Database error: {e}")

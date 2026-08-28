@@ -1,77 +1,121 @@
-from unittest.mock import patch, MagicMock
-from datetime import datetime, timezone
+import json
+from datetime import datetime
+from unittest.mock import MagicMock, patch
+
+from django.test import SimpleTestCase
 
 from ngRadar_Website.views.views import get_Message_Latency
+from ngRadar_Website.enums import Stations
 
-import json
 
-#set number of valid events
-NUMBEROFEVENTS = 5
+class GetMessageLatencyTests(SimpleTestCase):
 
-class SimulatedEvent:
-    def __init__(self, object_id, target, tx_waveform, event_time, latency_ms):
-        self.object_id = object_id
-        self.target = target
-        self.tx_waveform = tx_waveform
-        self.event_time = event_time
-        self.latency_ms = latency_ms
-    def getEventLatency(self):
-        return self.latency_ms
-    def getEventTime(self):
-        return self.event_time
-        
-@patch("ngRadar_Website.views.views.ObservatoryEvent")
-def test_get_Message_Latency(Mock_ObservatoryEvent):
-        
-    mock_event_time1=datetime(2026, 7, 20, 12, 30, 28, tzinfo=timezone.utc)
-    print(mock_event_time1)
-    mock_event_time2=datetime(2026, 7, 20, 13, 10, 15, tzinfo=timezone.utc)
-    mock_event_time3=datetime(2026, 7, 20, 13, 20, 43, tzinfo=timezone.utc)
-    mock_event_time4=datetime(2026, 7, 20, 14, 10, 10, tzinfo=timezone.utc)
-    mock_event_time5=datetime(2026, 7, 20, 14, 42, 34, tzinfo=timezone.utc)
-    mock_event_time6=datetime(2026, 7, 20, 15, 15, 18, tzinfo=timezone.utc)
+    @patch("ngRadar_Website.views.views.ObservatoryEvent.objects")
+    def test_get_message_latency(self, mock_objects):
+        event_1 = MagicMock()
+        event_1.latency_ms = 12.34567
+        event_1.station = Stations.HN
+        event_1.status = 1
+        event_1.event_time = datetime(2026, 8, 14, 10, 30, 0)
+        event_1.object_id = 30104
+        event_1.target = "Moretus"
+        event_1.get_station_display.return_value = "Hancock"
+        event_1.get_status_display.return_value = "Completed"
 
-    simulated_event_1 = SimulatedEvent(object_id="1", target="alpha", tx_waveform="45", event_time=mock_event_time1, latency_ms=500)
-    simulated_event_2 = SimulatedEvent(object_id="2", target="bravo", tx_waveform="46", event_time=mock_event_time2, latency_ms=250)
-    simulated_event_3 = SimulatedEvent(object_id="3", target="charlie", tx_waveform="47", event_time=mock_event_time3, latency_ms=300)
-    simulated_event_4 = SimulatedEvent(object_id="4", target="delta", tx_waveform="48", event_time=mock_event_time4, latency_ms=1200)
-    simulated_event_5 = SimulatedEvent(object_id="5", target="echo", tx_waveform="49", event_time=mock_event_time5, latency_ms=800)
-    simulated_event_6 = SimulatedEvent(object_id="6", target="foxtrot", tx_waveform="Tx_OFF", event_time=mock_event_time6, latency_ms=650)
+        event_2 = MagicMock()
+        event_2.latency_ms = 98.76543
+        event_2.station = Stations.DSOC
+        event_2.status = 1
+        event_2.event_time = datetime(2026, 8, 14, 10, 31, 0)
+        event_2.object_id = 30105
+        event_2.target = "W48"
+        event_2.get_station_display.return_value = (
+            "Domenici Socorro Operations Center"
+        )
+        event_2.get_status_display.return_value = "Completed"
 
-    sim_obs_event_arr = [simulated_event_1,simulated_event_2,simulated_event_3,simulated_event_4,simulated_event_5,simulated_event_6]
+        # The DB query orders newest -> oldest.
+        mock_queryset = MagicMock()
+        mock_objects.exclude.return_value = mock_queryset
+        mock_queryset.order_by.return_value.__getitem__.return_value = [
+            event_2,
+            event_1,
+        ]
 
-    Mock_ObservatoryEvent.objects.order_by.return_value = sim_obs_event_arr
+        # Act
+        result = next(get_Message_Latency())
 
-    mockGeneratorData = get_Message_Latency()
+        # Assert ORM calls
+        mock_objects.exclude.assert_called_once_with(
+            tx_waveform="Tx_OFF"
+        )
+        mock_queryset.order_by.assert_called_once_with("-event_time")
 
-    mockList = list(mockGeneratorData) #convert this to a list object - originally returns as generator
+        # Remove SSE prefix/suffix and parse JSON.
+        payload = json.loads(
+            result.removeprefix("data: ").strip()
+        )
 
-    removeLen = len("data:") #get how many digits to remove
-    payload = mockList[0][removeLen:] #removes the word "data:" from the list
-    payload = payload.strip() #removes extra whitespace. Necessary to convert to JSON
+        self.assertEqual(
+            payload["latency_array"],
+            [12.346, 98.765],
+        )
 
-    mockJSONData = json.loads(payload) #convert the payload into a JSON message
+        self.assertEqual(
+            payload["event_source_array"],
+            ["HN", "DSOC"],
+        )
 
-    latency_array = mockJSONData["latency_array"]
-    time_sent_array = mockJSONData["time_sent_array"]
+        self.assertEqual(
+            payload["event_metadata_array"],
+            [
+                {
+                    "station": "Hancock",
+                    "status": "Completed",
+                    "time": "2026-08-14 10:30:00",
+                    "object_id": 30104,
+                    "target": "Moretus",
+                },
+                {
+                    "station": "Domenici Socorro Operations Center",
+                    "status": "Completed",
+                    "time": "2026-08-14 10:31:00",
+                    "object_id": 30105,
+                    "target": "W48",
+                },
+            ],
+        )
 
-    print("Does Number of Elements in the Latency Array Equal the Number of Events?")
-    assert len(latency_array) == NUMBEROFEVENTS
 
-    print("Does Number of Elements in the Time Sent Array Equal the Number of Events?")
-    assert len(time_sent_array) == NUMBEROFEVENTS
+    @patch("ngRadar_Website.views.views.ObservatoryEvent.objects")
+    def test_get_message_latency_handles_missing_values(self, mock_objects):
+        event = MagicMock()
+        event.latency_ms = 10.0
+        event.station = None
+        event.status = None
+        event.event_time = datetime(2026, 8, 14, 10, 30, 0)
+        event.object_id = None
+        event.target = None
 
-    print("Are all the elements in the Latency Array Numbers?")
-    for time in latency_array:
-        if(isinstance(time,str)):
-            t = float(time.strip()) #remove whitespace and attempt to convert to float
-            isInt_or_Float = False
-            assert (isinstance(t,float)) == True
-    
-    print("Does the last element in the mock database match most recent latency and time")
-    assert (float(latency_array[NUMBEROFEVENTS-1])) == float(simulated_event_5.getEventLatency())
-    
-    outputTimeStr = "".join(time_sent_array[NUMBEROFEVENTS-1]) #combine the list into one string
-    originalTimeStr = str(simulated_event_5.getEventTime()) #convert the last date time into a string 
-    formatted_time_str = (originalTimeStr[0:10]+originalTimeStr[11:19])#format the time 
-    assert (outputTimeStr == formatted_time_str)
+        mock_queryset = MagicMock()
+        mock_objects.exclude.return_value = mock_queryset
+        mock_queryset.order_by.return_value.__getitem__.return_value = [event]
+
+        result = next(get_Message_Latency())
+
+        payload = json.loads(
+            result.removeprefix("data: ").strip()
+        )
+
+        self.assertEqual(payload["event_source_array"], ["Unknown"])
+
+        self.assertEqual(
+            payload["event_metadata_array"][0],
+            {
+                "station": "Unknown",
+                "status": "-",
+                "time": "2026-08-14 10:30:00",
+                "object_id": "-",
+                "target": "-",
+            },
+        )

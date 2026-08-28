@@ -51,6 +51,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     # the order of these is VERY important. 
     # if making changes, ensure the order is correct
+    "ngRadar_Website.middleware.DatabaseUnavailableMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',

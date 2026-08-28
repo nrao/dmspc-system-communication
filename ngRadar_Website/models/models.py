@@ -117,12 +117,6 @@ class uiEvent(models.Model):
         return f"UI Event: {self.selected_waveform} | {self.event_time}"
     
     
-class ngrok_endpoint(models.Model):
-    bootstrap = models.CharField()
-
-    def __str__(self):
-        return f"ngrok endpoint: {self.bootstrap}"
-    
 
 
 

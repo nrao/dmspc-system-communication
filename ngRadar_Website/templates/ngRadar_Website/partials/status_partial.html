@@ -1,7 +1,27 @@
-
-<div class="border rounded p-3 bg-white d-flex align-items-center" style="min-height: 5rem; display: flex; justify-content: center; align-items: center; font-size: 1.2rem">
+<div class="border rounded p-3 bg-white d-flex align-items-center text-center" style="min-height: 5rem; display: flex; justify-content: center; align-items: center; font-size: 1.2rem; white-space: normal">
     {% if gbt_event.tx_waveform == 'Tx_OFF' %}<!-- NOTE: We should maybe tie the return of the 'All Systems Online' status to the 'Generating...' status on the waveform input box (using ObservatoryEvent table)-->
         <span> ⏳ Changing waveform to {{ ui_event.selected_waveform }}... </span>
+    <!-- Only while transferring: once it has failed or completed, the tag is noise. -->
+    {% elif latest_event.status == 7 %}
+        <span> <strong style="font-weight: bold;">❗️ System Failure:</strong> {{ latest_event.message }} </span>  
+    {% elif transfer_resumed and latest_event.status == 4 %}
+        <span>
+            <strong style="font-weight: bold;">
+                {{ latest_event.get_status_display }}
+            </strong>:
+            
+            <span
+                class="text-muted small"
+                data-bs-toggle="tooltip"
+                data-bs-trigger="hover"
+                data-bs-delay='{"show":100,"hide":50}'
+                title="This transfer was interrupted and resumed where it left off. The data already delivered was not re-sent."
+            >
+                (resumed)
+            </span>
+        </span>
+    {% elif latest_event.status %}
+        <span> <strong style="font-weight: bold;">{{ latest_event.get_status_display }}</strong>: {{ latest_event.message }} </span>  
     {% else %}
         <span> ✅ All systems online. Observation in progress. </span>
     {% endif %}

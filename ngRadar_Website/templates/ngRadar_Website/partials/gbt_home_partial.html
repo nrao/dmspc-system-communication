@@ -35,19 +35,36 @@
 <script>
     function checkLock(){
         fetch('/home/lock-status/')
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("Lock status unavailable");
+                    }
+                    return response.json();
+                })
                 .then(data =>{
                     var btn = document.getElementById('waveform-submit-btn');
-                    btn.disabled = data.locked;
-                    if (data.locked){
-                        btn.textContent = "Generating ..."
+                    if (data.error) {
+                        btn.disabled = true;
+                        btn.textContent = "Error locking button";
                     }
-                    else{
-                        btn.textContent = "Submit"
+                    else if (data.locked) {
+                        btn.disabled = true;
+                        btn.textContent = "Generating ...";
                     }
+                    else {
+                        btn.disabled = false;
+                        btn.textContent = "Submit";
+                    }
+                })
+                .catch(error => {
+                    var btn = document.getElementById('waveform-submit-btn');
 
-                })  
-    }
+                    btn.disabled = true;
+                    btn.textContent = "Error locking button";
+
+                    console.error("Unable to determine lock status:", error);
+                });
+        }
 
     checkLock();
     setInterval(checkLock, 15000);

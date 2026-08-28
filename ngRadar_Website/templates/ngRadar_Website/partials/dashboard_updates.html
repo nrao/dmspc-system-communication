@@ -132,6 +132,26 @@
                                 >
                                     {{ latest_event.get_status_display|default:"-" }}
                                 </span>
+                            {% elif latest_event.status == 9 %}
+                                <span
+                                    class="badge rounded-pill bg-warning"
+                                    data-bs-toggle="tooltip"
+                                    data-bs-trigger="hover"
+                                    data-bs-delay='{"show":100,"hide":50}'
+                                    title="{{ latest_event.message }}"
+                                >
+                                    {{ latest_event.get_status_display|default:"-" }}
+                                </span>
+                                {% elif latest_event.status == 10 %}
+                                <span
+                                    class="badge rounded-pill bg-warning"
+                                    data-bs-toggle="tooltip"
+                                    data-bs-trigger="hover"
+                                    data-bs-delay='{"show":100,"hide":50}'
+                                    title="{{ latest_event.message }}"
+                                >
+                                    {{ latest_event.get_status_display|default:"-" }}
+                                </span>
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}

@@ -1,8 +1,8 @@
 # ===========================================================================
 # We use 1 Dockerfile and 1 docker-compose.yml file to build and 
 # run the Django application in a containerized environment.
-# If hosted locallly, it uses the local Postgres database. If in production, 
-# it uses the Render-hosted Postgres database.
+# If hosted locallly, it uses local .env and a local Postgres database. 
+# For live demo, it uses demo .env and the Render-hosted Postgres database.
 # ===========================================================================
 
 
@@ -22,7 +22,6 @@ services:
           condition: service_healthy
     volumes:
       - .:/service
-      # - ngrok_env:/out
     ports:
       - 8000:8000
     networks:
@@ -53,7 +52,6 @@ services:
     build:
       context: .
       target: load-staging-data
-      # dockerfile: load-staging-data.Dockerfile
     env_file:
       - .env
     networks:
@@ -78,21 +76,9 @@ services:
     networks:
       - ngradar_website_network
 
-  # ngrok:
-  #   image: ngrok/ngrok:latest
-  #   profiles: ["kafka"]
-  #   env_file:
-  #     - .env
-  #   environment:
-  #     NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
-  #   command: tcp broker:9092 --log stdout
-  #   ports:
-  #     - "4040:4040"
-  #   networks:
-  #     - ngradar_website_network
 
 
-# a one-shot init service that creates the 3 kafka topics before the broker starts
+# A one-shot init service that creates the Kafka topics after the broker is healthy
   kafka-init:
     image: confluentinc/cp-kafka:7.5.1
     depends_on:
@@ -133,6 +119,29 @@ services:
 
       echo "Kafka topic initialization complete."
     restart: "no"
+
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    profiles: ["kafka"]
+    env_file:
+      - .env
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    depends_on:
+      kafka-broker:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_started
+    volumes:
+      - ./ngrok.yml:/etc/ngrok.yml:ro
+    command:
+      - start
+      - --all
+      - --config
+      - /etc/ngrok.yml
+    networks:
+      - ngradar_website_network
     
 
   kafka-broker:
@@ -141,44 +150,17 @@ services:
     profiles: ["kafka"]
     depends_on:
       - zookeeper
-      # - ngrok
-    # volumes:
-    #   - ngrok_env:/out
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-broker:29092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-broker:29092,EXTERNAL://${NGROK_KAFKA_TCP_ADDRESS}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-
-      # Required for a one-broker development cluster
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-    # environment:
-    #   KAFKA_BROKER_ID: 1
-    #   KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-    #   KAFKA_LISTENERS: DOCKER://broker:29092, NGROK://broker:9092
-    #   KAFKA_ADVERTISED_LISTENERS: DOCKER://broker:29092
-    #   KAFKA_INTER_BROKER_LISTENER_NAME: DOCKER
-    #   KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: DOCKER:PLAINTEXT,NGROK:PLAINTEXT
-    #   KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    #   KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-    #   KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-    #   KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-
-    #   KAFKA_MESSAGE_MAX_BYTES: 5000000
-    #   KAFKA_REPLICA_FETCH_MAX_BYTES: 5000000
-    #   KAFKA_MAX_REQUEST_SIZE: 5000000
-    #   KAFKA_SOCKET_REQUEST_MAX_BYTES: 5000000
-    #   KAFKA_LOG_SEGMENT_BYTES: 1073741824 # Controls how much data can be written to the log segment at once
-
-    #   KAFKA_LOG_RETENTION_BYTES: 10737418240
-    #   KAFKA_LOG_RETENTION_MS: 604800000
     networks:
       - ngradar_website_network
     healthcheck:
@@ -191,27 +173,6 @@ services:
       timeout: 5s
       retries: 20
       start_period: 15s
-    # entrypoint: 
-    #   - /bin/sh 
-    #   - -c 
-    #   - |
-    #     echo "Waiting for ngrok tunnel to be created"
-    #     while : ; do
-    #       curl_status=$$(curl -s -o /dev/null -w %{http_code} http://ngrok:4040/api/tunnels/command_line)
-    #       echo -e $$(date) "\tTunnels API HTTP state: " $$curl_status " (waiting for 200)"
-    #       if [ $$curl_status -eq 200 ] ; then
-    #         break
-    #       fi
-    #       sleep 5 
-    #     done
-    #     echo "ngrok tunnel is up"
-    #     NGROK_LISTENER=$(curl -s  http://ngrok:4040/api/tunnels/command_line | grep -Po '"public_url":.*?[^\\]",' | cut -d':' -f2- | tr -d ',"' | sed 's/tcp:\/\//NGROK:\/\//g')
-    #     echo $$NGROK_LISTENER
-    #     export KAFKA_ADVERTISED_LISTENERS="$$KAFKA_ADVERTISED_LISTENERS, $$NGROK_LISTENER"
-    #     echo "KAFKA_ADVERTISED_LISTENERS is set to " $$KAFKA_ADVERTISED_LISTENERS
-    #     NGROK_BOOTSTRAP=$(curl -s  http://ngrok:4040/api/tunnels/command_line | grep -Po '"public_url":.*?[^\\]",' | cut -d':' -f2- | tr -d ',"' | sed 's/tcp:\/\///')
-    #     echo "BOOTSTRAP_SERVER=$$NGROK_BOOTSTRAP" > /out/ngrok_endpoint.env
-    #     /etc/confluent/docker/run
     
 
   kafka-ui:
@@ -227,31 +188,7 @@ services:
     networks:
       - ngradar_website_network
 
-  # ngrok-writer:
-  #   build: .
-  #   env_file:
-  #     - .env
-  #   depends_on:
-  #     - postgres
-  #     - broker
-  #   volumes:
-  #     - .:/service
-  #     - ngrok_env:/out
-  #   networks:
-  #     - ngradar_website_network
-  #   profiles: ["kafka"]
-  #   entrypoint:
-  #     - /bin/sh
-  #     - -c
-  #     - |
-  #       rm -f /out/ngrok_endpoint.env
-  #       echo "Finding ngrok endpoint..."
-  #       while [ ! -f /out/ngrok_endpoint.env ]; do sleep 2; done
-  #       while [ ! -s /out/ngrok_endpoint.env ]; do sleep 1; done
-  #       echo "----- Using ngrok endpoint: -----"
-  #       cat /out/ngrok_endpoint.env
-  #       echo "------------------------------------"
-  #       python manage.py ngrok_writer
+
 
 
 #==========================
@@ -273,28 +210,17 @@ services:
         condition: service_completed_successfully
     volumes:
       - .:/service
-      # - ngrok_env:/out
     networks:
       - ngradar_website_network
     profiles: ["kafka"]
     environment:
       BOOTSTRAP_SERVER: kafka-broker:29092
+      # if we move this sim to a separate machine, use the below bootstrap server:
+      # BOOTSTRAP_SERVER=7.tcp.ngrok.io:26729
     entrypoint:
         - python
         - manage.py
         - gbt_sim
-    # entrypoint:
-    #   - /bin/sh
-    #   - -c
-    #   - |
-    #     # rm -f /out/ngrok_endpoint.env
-    #     # echo "Finding ngrok endpoint..."
-    #     # while [ ! -f /out/ngrok_endpoint.env ]; do sleep 2; done
-    #     # while [ ! -s /out/ngrok_endpoint.env ]; do sleep 1; done
-    #     # echo "----- Using ngrok endpoint: -----"
-    #     # cat /out/ngrok_endpoint.env
-    #     # echo "------------------------------------"
-    #     python manage.py gbt_sim
 
 
 
@@ -317,57 +243,19 @@ services:
         condition: service_started
     volumes:
       - .:/service
-      # - ngrok_env:/out
       - dsoc_transfer:/dsoc/incoming
     networks:
       - ngradar_website_network
     profiles: ["kafka"]
     environment:
       BOOTSTRAP_SERVER: kafka-broker:29092
+      # if we move this sim to a separate machine, use the below bootstrap server:
+      # BOOTSTRAP_SERVER=7.tcp.ngrok.io:26729
     entrypoint:
         - python
         - manage.py
         - dsoc_sim
-    # entrypoint:
-    #   - /bin/sh
-    #   - -c
-    #   - |
-    #     # rm -f /out/ngrok_endpoint.env
-    #     # echo "Finding ngrok endpoint..."
-    #     # while [ ! -f /out/ngrok_endpoint.env ]; do sleep 2; done
-    #     # while [ ! -s /out/ngrok_endpoint.env ]; do sleep 1; done
-    #     # echo "----- Using ngrok endpoint: -----"
-    #     # cat /out/ngrok_endpoint.env
-    #     # echo "------------------------------------"
-    #     python manage.py dsoc_sim
   
-
-
-  etr_progress_writer:
-    build:
-      context: .
-      target: base
-    env_file:
-      - .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      kafka-broker:
-        condition: service_healthy
-      kafka-init:
-        condition: service_completed_successfully
-    volumes:
-      - .:/service
-      - dsoc_transfer:/dsoc/incoming
-    networks:
-      - ngradar_website_network
-    profiles: ["kafka"]
-    environment:
-      BOOTSTRAP_SERVER: kafka-broker:29092
-    entrypoint:
-        - python
-        - manage.py
-        - etr_progress_writer
 
   
 
@@ -388,7 +276,6 @@ services:
         condition: service_started
     volumes:
       - .:/service
-      # - ngrok_env:/out
       - vlba_data:/raw_data
     networks:
       - ngradar_website_network
@@ -396,22 +283,12 @@ services:
     environment:
       ETD_DESTINATION: "etr_daemon:/dsoc/incoming/"
       BOOTSTRAP_SERVER: kafka-broker:29092
+      # if we move this sim to a separate machine, use the below bootstrap server:
+      # BOOTSTRAP_SERVER=7.tcp.ngrok.io:26729
     entrypoint:
       - python
       - manage.py
       - vlba_sim
-    # entrypoint:
-    #   - /bin/sh
-    #   - -c
-    #   - |
-    #     rm -f /out/ngrok_endpoint.env
-    #     echo "Finding ngrok endpoint..."
-    #     while [ ! -f /out/ngrok_endpoint.env ]; do sleep 2; done
-    #     while [ ! -s /out/ngrok_endpoint.env ]; do sleep 1; done
-    #     echo "----- Using ngrok endpoint: -----"
-    #     cat /out/ngrok_endpoint.env
-    #     echo "------------------------------------"
-    #     python manage.py vlba_sim
 
 
 
@@ -422,7 +299,6 @@ services:
     build: 
       context: .
       target: seaweedfs
-      # dockerfile: seaweed.Dockerfile
     env_file:
       - .env
     environment:
@@ -430,7 +306,7 @@ services:
       WEED_S3_ACCESS_KEY: ${WEED_S3_ACCESS_KEY}
       WEED_S3_SECRET_KEY: ${WEED_S3_SECRET_KEY}
     ports:
-      - "8333:8333"
+      - "8333:8333" # SeaweedFS S3 gateway (ngrok exposes this during demos for our cloud-hosted website to retrieve images)
       - "8888:8888"
       - "9333:9333"
     volumes:
@@ -497,6 +373,7 @@ services:
       - srt://:8008
 
 
+
 #==========================
 # end of containers
 #==========================
@@ -506,7 +383,6 @@ volumes:
   postgres_data:
   staging_dump:
   seaweed_data:
-  # ngrok_env:
   dsoc_transfer:
   vlba_data:
 

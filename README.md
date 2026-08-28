@@ -1,3 +1,11 @@
+pytest -s test_submit_waveform ngRadar_Website/tests/test_views.py
+pytest ngRadar_Website/tests/test_latencyv2.py 
+
+https://github.com/desmond-L-NRAO/forked-dmspc-system-communication-for-render.git
+
+pytest ngRadar_Website/tests/test_views.py::test_submit_waveform
+
+
 # dmspc-system-communication
 Code for prototyping system communication for the ngRadar project. This code is written by the Data Management & Software Prototyping Cohort (DMSPC).
 
@@ -10,6 +18,10 @@ Code for prototyping system communication for the ngRadar project. This code is 
 | `load_staging_data.Dockerfile` | A separate, one-off image used only to dump/load staging data from our demo db to the local DB (for local development only) |
 | `control.sh` | A thin wrapper script so the team doesn't need to memorize `docker compose` invocations |
 | `.env` | Environment variables consumed by `/settings.py` (our .env file is never committed to Github - please ask team for the .env file for local dev) |
+
+# Create a Virtual Environment
+# python3 -m venv .venv
+
 
 # Start the Virtual Environment
 # source .venv/bin/activate
@@ -53,6 +65,10 @@ Run these commands in your terminal to accomplish any of the following:
 
 ./control.sh testcov        # Calculates unit test coverage and prints the test results in the terminal
 ```
+# Commands Within the Control Shell
+python3 manage.py migrate       # Retrieves the latest database migrations and applies them
+python3 manage.py makemigrations       # Creates new database changes
+python3 manage.py createsuperuser       # Allows for a new website user to be created after hard reset or database deletion
 
 
 ## Summary of Containers:

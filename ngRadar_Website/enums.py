@@ -14,7 +14,6 @@ class Stations(models.IntegerChoices):
     MK  = 99, "Mauna Kea (25-m, VLBA)"
     DSOC = 100, "DSOC (Domenici Socorro Operations Center)"
     UI = 101, "User Interface"
-    ETR = 102, "E-Transfer Progress Writer"
 
 
 class Status(models.IntegerChoices):
@@ -26,6 +25,8 @@ class Status(models.IntegerChoices):
     TRANSFERRED = 6, "Transferred"      # This status would be used when the e-transfer has completed from etc -> etd successfully, will be the status sent by kafka to DSOC to begin DSOC workflow.
     FAILED = 7, "Failed"        
     COMPLETED = 8, "Completed"          # This status would be used when the e-transfer has completed successfully and the data has been verified, processed, and stored appropriately.
+    POLLING = 9, "Polling SeaweedFS"    # Used during failure testing for transparency
+    RETRYING = 10, "Retrying storage check" # Used the first time DSOC has to retry a storage check
 
 
 class Message(models.IntegerChoices):

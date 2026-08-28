@@ -1,29 +1,3 @@
-<!-- Etransfer status message: -->
-
-<div class="border rounded py-3 bg-white ps-3 pe-3 d-flex mx-auto align-items-center" style="max-width: 50rem;">
-    <!-- I divide this box into three columns in order to have the status be in the center of the middle column -->
-    <div class="col-4">
-        <h5 class="fw-bold mb-0">E-Transfer status:</h5>
-    </div>
-
-    <div class="col-4 text-center">
-        {% if latest_etr_event.status == 4 %}
-        <span class="fs-5">Transferring...</span>
-        {% elif latest_etr_event.status == 5 %}
-        <span class="fs-5">Verifying...</span>
-        {% elif latest_etr_event.status == 6 %}
-        <span class="fs-5">Transfer Complete. Creating DDM...</span>
-        {% elif latest_etr_event.status == 8 %}
-        <span class="fs-5">Complete!</span>
-        {% elif latest_etr_event.status is None %}
-        <span class="fs-5">Waiting for signal...</span>
-        {% endif %}
-    </div>
-
-    <div class="col-4"></div>
-</div>
-
-
 <!-- Image and Image status message: -->
 
 <div class="mt-4 border rounded pt-3 pb-3 bg-white ps-3 pe-3 text-center mx-auto"
@@ -51,27 +25,5 @@ style="max-width: 50rem;">
 
 
 <!-- This js is to allow cross-origin requests (CORS) to seaweedfs -->
-<script>
-(function() {
-    const imgElement = document.getElementById("new-ddm-image");
-    const loadingElement = document.getElementById("image-loading");
-    
-    if (imgElement) {
-        // Unhide the image block only after it fully fetches from SeaweedFS
-        imgElement.onload = function() {
-            imgElement.style.display = "block";
-            loadingElement.style.display = "none";
-        };
-        
-        // Error handling:
-        imgElement.onerror = function() {
-            loadingElement.innerText = "Could not retrieve image from SeaweedFS.";
-        };
-        
-        if (imgElement.complete) {
-            imgElement.onload();
-        }
-    }
-})();
-</script>
+<script src="../../../static/ngRadar_Website/js/dsoc_home_seaweed_script.js"></script>
 
