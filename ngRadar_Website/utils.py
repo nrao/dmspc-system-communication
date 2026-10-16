@@ -442,9 +442,11 @@ def consume(
                     )
                     continue
 
-                print(
-                    "Consumer error:",
-                    error,
+                print("Consumer error:", error)
+
+                publish_status_obsEvents(
+                    status=Status.FAILED,
+                    msg="Etransfer Failed to connect to Kafka.",
                 )
 
                 break

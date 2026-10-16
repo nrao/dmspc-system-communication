@@ -23,9 +23,5 @@ numpy
 pytest
 pytest-django
 pytest-cov
-pytest-asyncio
-opentelemetry-api
-opentelemetry-sdk
-opentelemetry-exporter-otlp
-pandas
-opentelemetry-instrumentation-openai
+uvicorn
+fastapi

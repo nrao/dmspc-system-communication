@@ -1,12 +1,10 @@
-import asyncio
-import json
-import logging
+# auth imports
 import os
-import time
+import django
 
-from datetime import datetime, timezone
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
+django.setup()
 
-from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, login_not_required
 from django.core.cache import cache
@@ -40,30 +38,16 @@ from ngRadar_Website.utils import (
 logger = logging.getLogger(__name__)
 
 
-# ============================================================
-# Constants
-# ============================================================
+from ngRadar_Website.models.models import ObservatoryEvent, uiEvent, gbtEvent, dsocEvent, ETransferEvent
+from django.contrib import messages
+from django.db.models import Avg
+from datetime import datetime, timezone
+import logging
 
-RECORDS_TO_DISPLAY = 10
+import json, uuid, os, time
 
-
-# ============================================================
-# ObservatoryEvent query helpers
-# ============================================================
-
-def get_latest_station_event(station):
-    """
-    Return the latest persisted ObservatoryEvent for a station.
-    Used only to establish initial page state.
-    """
-
-    return (
-        ObservatoryEvent.objects
-        .filter(station=station)
-        .order_by("-event_time", "-uuid")
-        .first()
-    )
-
+from fastapi import FastAPI
+app = FastAPI()
 
 def get_latest_image_event():
     """

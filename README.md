@@ -25,7 +25,8 @@ To summarize, within the expedat folder, there should be only 3 files - movedat,
 | `.env` | Environment variables consumed by `/settings.py` (our .env file is never committed to Github - please ask team for the .env file for local dev) |
 
 # Create a Virtual Environment
-`$python3 -m venv .venv`
+# python3 -m venv .venv
+
 
 # Start the Virtual Environment
 `$source .venv/bin/activate`
@@ -70,9 +71,18 @@ The commands below are the most useful to start up this system locally. Please s
 
 `$python3 manage.py makemigrations`     # Creates new database changes.
 
+./control.sh agent-up       # If the gbt or vlba droplet's agent fails, start it up again with this command.
+```
+# Stop the FastAPI Service if it fails to stop
+lsof -t -i tcp:8001 | xargs kill -9
+
 `$python3 manage.py createsuperuser`    # Allows for a new website user to be created 
                                         # after hard reset or database deletion.
 
+# Commands Within the Control Shell
+python3 manage.py migrate       # Retrieves the latest database migrations and applies them
+python3 manage.py makemigrations       # Creates new database changes
+python3 manage.py createsuperuser       # Allows for a new website user to be created after hard reset or database deletion
 
 ## Summary of Containers:
 For local dev, we spin up the following Docker containers, which you can see on a GUI using Docker Desktop:  
