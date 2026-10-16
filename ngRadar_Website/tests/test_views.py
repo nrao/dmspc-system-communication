@@ -1,178 +1,224 @@
 from pathlib import Path
-
-from dotenv import load_dotenv
-from unittest.mock import patch, MagicMock
-
-from ngRadar_Website.views.views import get_obs_events
-from ngRadar_Website.enums import Stations
-from datetime import datetime, timezone, timedelta
+from unittest.mock import patch, MagicMock, AsyncMock
 import pytest
-from ngRadar_Website.enums import Stations
-from ngRadar_Website.models.models import gbtEvent, dsocEvent, ObservatoryEvent, uiEvent
-#from ngRadar_Website.views.views import get_obs_events
+
+from ngRadar_Website.enums import Stations, Message, Status
+from datetime import datetime, timezone
+from ngRadar_Website.models.models import ObservatoryEvent
 from django.test import RequestFactory
+from django.urls import reverse
 from django.http import HttpResponse, HttpResponseRedirect
+from django.contrib.auth.models import User
+from django.contrib.sessions.middleware import SessionMiddleware
+from unittest.mock import call
 
-import random,string
+import json
+import uuid
 
-# ==============================================================================
-# IMPORTANT:
-# Because we read "ngrok_endpoint.env" on import, we need to patch the Path globally
-# before importing all the functions we want to test.
-# ==============================================================================
-mock_env_data = "BOOTSTRAP_SERVER=localhost:9092\nSOME_OTHER_VAR=value" 
-with patch("pathlib.Path.read_text", return_value=mock_env_data):
-    from ngRadar_Website.views.views import (
-        serve_image,
-        lock_status,
-        submit_waveform,
-        login_view,
-        logout_view,
-    )
-
-
-"""Commented out is my testing for get_obs_event, which we are no longer testing, but I'm keeping the code for now"""
-
-# #Test the Functions from views.py
-# @pytest.mark.django_db
-# def test_get_obs_events():
-
-#     now = datetime.now(timezone.utc)
-
-#     for i in range(25):
-#         ObservatoryEvent.objects.create(
-#             uuid = f"{i}",
-#             object_id = f"OBJ{i}",
-#             target = "target",
-#             tx_waveform = "Sinewave",
-#             rec_waveform = "Sinewave",
-#             product_type = "DDM",
-#             product_id = f"00{i}",
-#             station = Stations.GBT,
-#             event_time = now - timedelta(seconds=i),
-#             created_at = now - timedelta(seconds=i+5),
-#             xmit_station = Stations.GBT,
-#             rcvr_station = Stations.DSOC,
-#             image_key = f"ddm/target/uuid.png",
-#             num_bytes = 2048,
-#             latency_ms = 100,
-#         )
-#         gbtEvent.objects.create(
-#             uuid = f"{i}",
-#             object_id = f"OBJ{i}",
-#             target = "target",
-#             tx_waveform = "Sinewave",
-#             rec_waveform = "Sinewave",
-#             event_time = now - timedelta(seconds=i),
-#             latency_ms = 100
-#         )
-#         dsocEvent.objects.create(
-#             uuid = f"{i}",
-#             object_id = f"OBJ{i}",
-#             target = "target",
-#             image_key = f"ddm/target/uuid.png",
-#             num_bytes = 2048,
-#             event_time = now - timedelta(seconds=i),
-#             latency_ms = 100
-#         )
-#         uiEvent.objects.create(
-#             uuid = f"{i}",
-#             selected_waveform = "Sinewave",
-#             event_time = now - timedelta(seconds=i)
-#         )
-
-#     theObservatoryEvents = get_obs_events()
-
-#     latest_obs_events = theObservatoryEvents["latest_events"]
-#     length = len(latest_obs_events)
-#     assert length == 20
-
-
-# ==============================================================================
-# 1. get_message_latency Test
-# ==============================================================================
-
-"""Desmond's code here:"""
-
+from ngRadar_Website.views.views import (
+    serve_image,
+    lock_status,
+    submit_waveform,
+    login_view,
+    logout_view,
+    home_view,
+    dashboard_view,
+    event_table_partial,
+    RECORDS_TO_DISPLAY,
+    get_latest_image_events,
+    get_dashboard_context,
+    latency_data,
+    sse_stream,
+)
 
 # ==============================================================================
 # 2. serve_image Test
 # ==============================================================================
 
-
 @patch.dict(
     "os.environ",
     {
-        "WEED_S3_INTERNAL_DOMAIN": "seaweedfs.fake.com",
-        "WEED_S3_ACCESS_KEY": "fake_access_key",
-        "WEED_S3_SECRET_KEY": "fake_key",
-        "WEED_S3_BUCKET": "fake_bucket",
-        "WEED_S3_PUBLIC_DOMAIN": "fake_domain"
+        "WEED_S3_BUCKET": "fake_bucket"
     },
 )
 @patch("ngRadar_Website.views.views.get_object_or_404")
-@patch("ngRadar_Website.views.views.boto3")
-@patch("ngRadar_Website.views.views.Config")
-def test_serve_image(mock_Config, mock_boto3, mock_get_obj):
+@patch("ngRadar_Website.views.views.create_presigned_url")
+@patch("ngRadar_Website.views.views.redirect")
+def test_serve_image(mock_redirect, mock_presigned, mock_get_obj):
+    """Scenario 1: no errors"""
 
     mock_event = MagicMock()
     mock_event.image_key = "images/test.png"
     mock_get_obj.return_value = mock_event
 
-    mock_config = MagicMock()
-    mock_Config.return_value = mock_config
+    mock_url = MagicMock()
+    mock_presigned.return_value = mock_url
 
-    #creating the fake boto3.client:
-    mock_s3 = MagicMock()
-    mock_boto3.client.return_value = mock_s3
-
-    #set the internal url using our fake WEED_S3_INTERNAL_DOMAIN:
-    internal_url = (
-        "http://seaweedfs.fake.com/fake_bucket/images/test.png"
-    )
-    mock_s3.generate_presigned_url.return_value = internal_url
+    mock_redirect.return_value = "output"
 
     #call the function:
-    output = serve_image(request = "request", uuid = "uuid")
+    result = serve_image(
+            request="request",
+            uuid="uuid",
+        )
 
-    #assert that the WEED_S3_PUBLIC_DOMAIN variable was used to update the url:
-    assert output.url == "http://fake_domain/fake_bucket/images/test.png"
-    mock_boto3.client.assert_called_once_with(
-            "s3",
-            endpoint_url="seaweedfs.fake.com",
-            aws_access_key_id="fake_access_key",
-            aws_secret_access_key="fake_key",
-            config = mock_config
-        ) #checking that an S3 client was created
+    mock_get_obj.assert_called_once_with(ObservatoryEvent, uuid="uuid")
+    mock_presigned.assert_called_once_with(mock_event)
+    assert result == "output"
+    mock_redirect.assert_called_once_with(mock_url)
 
+@patch.dict(
+    "os.environ",
+    {
+        "WEED_S3_BUCKET": "fake_bucket"
+    },
+)
+@patch("ngRadar_Website.views.views.get_object_or_404")
+@patch("ngRadar_Website.views.views.create_presigned_url")
+def test_serve_image_error(mock_presigned, mock_get_obj, caplog):
+    """Scenario 2: exception raised"""
+
+    mock_event = MagicMock()
+    mock_event.image_key = "images/test.png"
+    mock_get_obj.return_value = mock_event
+
+    mock_presigned.side_effect = Exception("Failed to connect.")
+
+    #call the function:
+    serve_image(request = "request", uuid = "uuid")
+
+    mock_get_obj.assert_called_once_with(ObservatoryEvent, uuid="uuid")
+    mock_presigned.assert_called_once_with(mock_event)
+    assert "Failed to retrieve image from SeaweedFS." in caplog.text
+
+# ===============================================================================
+# 3. Submit waveform test
+# ===============================================================================
+@patch("ngRadar_Website.views.views.datetime")
+@patch("ngRadar_Website.views.views.cache")
+@patch("ngRadar_Website.views.views.bootstrap")
+@patch("ngRadar_Website.views.views.send_kafka_message")
+def test_submit_waveform(
+    mock_kafka,
+    mock_bootstrap,
+    mock_cache,
+    mock_datetime,
+):
+    """Test successful waveform submission."""
+
+    mock_uuid = uuid.UUID(
+        "12345678-1234-5678-1234-567812345678"
+    )
+
+    test_timestamp = datetime(
+        2026,
+        8,
+        17,
+        12,
+        30,
+        45,
+        tzinfo=timezone.utc,
+    )
+
+    test_waveform = "W45"
+
+    # No existing waveform submission lock.
+    mock_cache.get.return_value = None
+
+    # Fixed timestamp for the new lock.
+    mock_datetime.now.return_value = (
+        test_timestamp
+    )
+
+    # Kafka successfully returns the event UUID.
+    mock_kafka.return_value = mock_uuid
+
+    mock_bootstrap.return_value = (
+        "test_topic",
+        "test_config",
+    )
+
+    factory = RequestFactory()
+
+    request = factory.post(
+        "/home/submit-waveform/",
+        data={
+            "waveform": test_waveform,
+        },
+    )
+
+    request.user = User(
+        username="testuser"
+    )
+
+    response = submit_waveform(request)
+
+    assert response.status_code == 202
+
+    response_data = json.loads(
+        response.content
+    )
+
+    assert response_data == {
+        "error": False,
+        "event_uuid": str(mock_uuid),
+        "message": (
+            f"Waveform {test_waveform} submitted."
+        ),
+    }
+
+    mock_cache.get.assert_called_once_with(
+        "submit_locked"
+    )
+
+    mock_cache.set.assert_called_once_with(
+        "submit_locked",
+        test_timestamp,
+    )
+
+    mock_kafka.assert_called_once_with(
+        message_type=Message.UI_EVENT,
+        producer_topic="test_topic",
+        producer_config="test_config",
+        waveform_requester="testuser",
+        station=Stations.UI,
+        tx_waveform=test_waveform,
+        rec_waveform=test_waveform,
+        message=(
+            f"testuser submitted waveform "
+            f"{test_waveform}."
+        ),
+    )
+
+    mock_bootstrap.assert_called_once_with(
+        Stations.UI
+    )
 
 # ==============================================================================
-# 3. login_view Test
+# 4. login_view Test
 # ==============================================================================
 
 
-@patch("ngRadar_Website.views.views.logout_view")
-def test_login_view_auth(mock_logout):
+@patch("ngRadar_Website.views.views.redirect")
+def test_login_view_auth(mock_redirect):
     """Scenario 1: user is authenticated"""
 
     #We need this django function to generate a fake http request for us:
     factory = RequestFactory()
     request = factory.get("/login/")
 
-    #the following authentication is True to satisfy the if statement:
     request.user = MagicMock()
     request.user.is_authenticated = True
 
-    #We need the formatting to be in HttpResponse to satisfy the cache_control decorator:
-    mock_response = HttpResponse("logged out")
-    mock_logout.return_value = mock_response
+    # Make redirect() return a real response object Django can set headers on
+    expected_url = reverse("home")  # adjust if different
+    mock_redirect.return_value = HttpResponseRedirect(expected_url)
 
-    #Call the function:
-    output = login_view(request)
+    response = login_view(request)
 
-    assert output == mock_response
-    mock_logout.assert_called_once_with(request)
-
+    mock_redirect.assert_called_once_with("home")
+    assert response.status_code == 302
+    assert response.url == expected_url
 
 @patch("ngRadar_Website.views.views.authenticate")
 @patch("ngRadar_Website.views.views.login")
@@ -234,3 +280,274 @@ def test_login_view_post_invalid(mock_logout, mock_msg_error, mock_render, mock_
     mock_msg_error.assert_called_once_with(request, "Invalid username or password.")
     mock_render.assert_called_once_with(request, 'registration/login.html')
     mock_logout.assert_not_called()
+
+
+# ==============================================================================
+# 6. lock_status Test
+# ==============================================================================
+
+@patch("ngRadar_Website.views.views.cache.get")
+@patch("ngRadar_Website.views.views.JsonResponse")
+def test_lock_status_none(mock_json, mock_cache_get):
+    """Scenario 1: lock time is None"""
+
+    mock_cache_get.return_value = None
+    mock_json.return_value = "fake_json_response"
+
+    request = RequestFactory().get("/lock-status/")
+    output = lock_status(request)
+
+    assert output == "fake_json_response"
+    mock_cache_get.assert_called_once_with('submit_locked')
+    mock_json.assert_called_once_with({"locked": False,
+                                 "error": False})
+
+
+@patch("ngRadar_Website.views.views.cache.delete")
+@patch("ngRadar_Website.views.views.cache.get")
+@patch("ngRadar_Website.views.views.JsonResponse")
+@patch("ngRadar_Website.views.views.ObservatoryEvent")
+def test_lock_matching_event_time(mock_ObservatoryEvent, mock_json, mock_cache_get, mock_cache_delete):
+    """Scenario 2: lock time matches the event time"""
+
+    mock_cache_get.return_value = "fake_time"
+    mock_json.return_value = "fake_json_response"
+
+    mock_ObservatoryEvent.objects.return_value.filter.return_value = True
+
+    request = RequestFactory().get("/lock-status/")
+    output = lock_status(request)
+
+    assert output == "fake_json_response"
+    mock_cache_get.assert_called_once_with('submit_locked')
+    mock_json.assert_called_once_with({"locked": False,
+                                 "error": False})
+    mock_cache_delete.assert_called_once_with('submit_locked')
+
+
+@patch("ngRadar_Website.views.views.cache.get")
+@patch("ngRadar_Website.views.views.JsonResponse")
+def test_lock_status_exception(mock_json, mock_cache_get):
+    """Scenario 3: Exception is raised"""
+
+    mock_cache_get.side_effect = Exception("Caching Error")
+
+    mock_json.return_value = "fake_json_response"
+
+    request = RequestFactory().get("/lock-status/")
+    output = lock_status(request)
+
+    assert output == "fake_json_response"
+    mock_cache_get.assert_called_once_with('submit_locked')
+    mock_json.assert_called_once_with({
+                                "locked": True,
+                                "error": True,
+                                "message": "Unable to determine lock status."
+                            }, status=503)
+
+# ==============================================================================
+# 7. logout_view Test
+# ==============================================================================
+@patch("ngRadar_Website.views.views.redirect")
+@patch("ngRadar_Website.views.views.logout")
+def test_logout_view(mock_logout, mock_redirect):
+    #We need this django function to generate a fake http request for us:
+    factory = RequestFactory()
+    request = factory.post("/logout/")
+
+    logout_view(request)
+
+    mock_logout.assert_called_once_with(request)
+    mock_redirect.assert_called_once_with("login")
+
+
+# ==============================================================================
+# 8. home_view Test
+# ==============================================================================
+
+@patch("ngRadar_Website.views.views.render")
+@patch("ngRadar_Website.views.views.get_home_context")
+def test_home_view(mock_get_home_context, mock_render):
+    request = MagicMock()
+
+    response = HttpResponse("fake_response")
+    mock_render.return_value = response
+
+    output = home_view(request)
+
+    assert output == response
+    mock_render.assert_called_once_with(request, "ngRadar_Website/home.html", mock_get_home_context())
+
+
+# ==============================================================================
+# 9. dashboard_view Test
+# ==============================================================================
+
+@patch("ngRadar_Website.views.views.render")
+@patch("ngRadar_Website.views.views.get_dashboard_context")
+def test_dashboard_view(mock_get_dashboard_context, mock_render):
+    request = MagicMock()
+
+    response = HttpResponse("fake_response")
+    mock_render.return_value = response
+
+    output = dashboard_view(request)
+
+    assert output == response
+    mock_render.assert_called_once_with(request, "ngRadar_Website/history.html", mock_get_dashboard_context())
+
+
+# ==============================================================================
+# 10. event_table_partial Test
+# ==============================================================================
+
+@patch("ngRadar_Website.views.views.render")
+@patch("ngRadar_Website.views.views.get_dashboard_context")
+def test_event_table_partial(mock_get_dashboard_context, mock_render):
+
+    response = HttpResponse("fake_response")
+    mock_render.return_value = response
+
+    request = RequestFactory().get("/lock-status/")
+
+    # Add session to the RequestFactory request
+    middleware = SessionMiddleware(lambda request: None)
+    middleware.process_request(request)
+
+    output = event_table_partial(request)
+
+    assert output == response
+    mock_render.assert_called_once_with(request, "ngRadar_Website/partials/history_updates.html", mock_get_dashboard_context.return_value)
+
+# ==============================================================================
+# 11. get_latest_image_events Test
+# ==============================================================================
+
+@patch("ngRadar_Website.views.views.ObservatoryEvent")
+def test_get_latest_image_events(mock_ObservatoryEvent):
+    mock_ObservatoryEvent.objects.filter.return_value.exclude.return_value.exclude.return_value.order_by.return_value.first.return_value = "event"
+
+    result = get_latest_image_events()
+
+    assert len(result) == 10
+    assert result == ["event"] * 10
+
+# ==============================================================================
+# 12. get_dashboard_context Test
+# ==============================================================================
+
+@patch("ngRadar_Website.views.views.ObservatoryEvent")
+@patch("ngRadar_Website.views.views.get_current_waveform")
+@patch("ngRadar_Website.views.views.get_latest_image_event")
+def test_get_dashboard_context(mock_latest_image, mock_current_wf, mock_ObservatoryEvent):
+    """Scenario 1: message_number is None"""
+
+    message_number = None
+
+    # latest_events
+    latest_event = MagicMock()
+    latest_event.transfer_uuid = "transfer-123"
+    
+    latest_events = [latest_event, MagicMock()]
+    mock_ObservatoryEvent.objects.order_by.return_value.__getitem__.return_value = (
+        latest_events
+    )
+    # avg latency
+    mock_ObservatoryEvent.objects.exclude.return_value.aggregate.return_value = {
+        "avg": 25.5
+    }
+    # transfer events
+    transfer_events = ["transfer1", "transfer2"]
+    mock_ObservatoryEvent.objects.filter.return_value.order_by.return_value = (
+        transfer_events
+    )
+    # transferring count
+    mock_ObservatoryEvent.objects.filter.return_value.count.return_value = 2
+
+    result = get_dashboard_context(message_number)
+
+    assert result == {
+                    "latest_events": latest_events,
+                    "latest_event": latest_event,
+                    "avg_latency": round(25.5, 2),
+                    "current_waveform": mock_current_wf(),
+                    "latest_image_event": mock_latest_image(),
+                    "transfer_events": transfer_events,
+                    "transfer_resumed": True,
+                }
+
+# ==============================================================================
+# 13. latency_data Test
+# ==============================================================================
+
+@patch("ngRadar_Website.views.views.ObservatoryEvent")
+def test_latency_data(mock_ObservatoryEvent):
+
+    factory = RequestFactory()
+    request = factory.get("/login/")
+    # Add session to the RequestFactory request
+    middleware = SessionMiddleware(lambda request: None)
+    middleware.process_request(request)
+
+    events = []
+    for _ in range(RECORDS_TO_DISPLAY):
+        event = MagicMock()
+        event.station = None
+        event.status = None
+        event.latency_ms = 10.123
+        event.event_time = datetime.now()
+        event.object_id = None
+        event.target = None
+        events.append(event)
+    mock_ObservatoryEvent.objects.exclude.return_value.order_by.return_value.__getitem__.return_value = events
+
+    result = latency_data(request)
+    data = json.loads(result.content)
+
+    assert len(data["latency_array"]) == RECORDS_TO_DISPLAY
+
+# ==============================================================================
+# 14. sse_stream Test
+# ==============================================================================
+
+@pytest.mark.asyncio
+@patch("ngRadar_Website.views.views.sse_broker")
+async def test_sse_stream(mock_sse):
+
+    subscriber = MagicMock()
+    queue = MagicMock()
+
+    event = {
+        "type": "gbt_changed",
+        "data": {
+            "status": "ready"
+        },
+    }
+
+    queue.get = AsyncMock(return_value=event)
+
+    mock_sse.subscribe.return_value = (subscriber, queue)
+
+    factory = RequestFactory()
+    request = factory.get("/")
+
+    response = await sse_stream(request)
+
+    assert response["Content-Type"] == "text/event-stream"
+    assert response["Cache-Control"] == "no-cache"
+    assert response["X-Accel-Buffering"] == "no"
+
+    generator = response.streaming_content
+
+    # Actually starts executing event_generator()
+    retry = await generator.__anext__()
+
+    assert retry == b"retry: 3000\n\n"
+
+    # Executes the while-loop and queue.get()
+    message = await generator.__anext__()
+
+    assert message == (
+        b'event: gbt_changed\n'
+        b'data: {"status": "ready"}\n\n'
+    )

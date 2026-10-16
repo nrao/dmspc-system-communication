@@ -1,95 +1,447 @@
 {% extends 'ngRadar_Website/base.html' %}
+{% load static %}
 
-{% block title %}Home{% endblock %}
+{% block title %}
+    Home
+{% endblock %}
 
 {% block content %}
 
-<!-- Row 1: Header / Live Clock -->
+<!-- ===================================================== -->
+<!-- Current UTC time -->
+<!-- ===================================================== -->
+
 <div class="container text-center mb-4">
     <div class="fs-5">
-        <strong style="font-weight: 700 !important;">Current Time in UTC:</strong> <span id="live-clock"></span>
-    </div>
-    <script>
-        function getTime() {
-            const now = new Date();
-            const year = now.getUTCFullYear();
-            const month = String(now.getUTCMonth() + 1).padStart(2, '0');
-            const day = String(now.getUTCDate()).padStart(2, '0');
-            const hours = String(now.getUTCHours()).padStart(2, '0');
-            const minutes = String(now.getUTCMinutes()).padStart(2, '0');
-            const seconds = String(now.getUTCSeconds()).padStart(2, '0');
-            const formattedTimestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-            document.getElementById('live-clock').textContent = formattedTimestamp;
-        }
-        getTime();
-        setInterval(getTime, 1000);
-    </script>
-</div>
-  
+        <strong style="font-weight: 700 !important;">
+            Current Time in UTC:
+        </strong>
 
-<!-- Row 2: Obs Status & Input Waveform -->
-<div class="row justify-content-center g-3 mb-4">
-    <!-- Obs Status -->
-    <div id="home-status-partial" 
-        hx-get="{% url 'status' %}" 
-        hx-trigger="every 1s" 
-        hx-target="#home-status-partial"
-        class="col-12 col-md-6 col-lg-5">
-        {% include 'ngRadar_Website/partials/status_partial.html' %}
+        <span id="live-clock"></span>
     </div>
-      
+</div>
+
+
+<!-- ===================================================== -->
+<!-- System status + waveform submission -->
+<!-- ===================================================== -->
+
+<div class="row justify-content-center g-3 mb-4">
+
+    <!-- System Status -->
+    <div class="col-12 col-md-6 col-lg-5">
+
+        <div
+            id="system-status-container"
+            class="
+                border rounded p-3 bg-white
+                d-flex align-items-center
+                justify-content-center
+                text-center
+            "
+            style="
+                min-height: 5rem;
+                font-size: 1.2rem;
+            "
+        >
+
+            <span id="system-status">
+
+                {% if latest_event.status == 8 %}
+
+                    <strong class="fw-bold">
+                        ❗ System Failure:
+                    </strong>
+
+                    <span id="system-status-message">
+                        {{ latest_event.message }}
+                    </span>
+
+                {% elif latest_event.status %}
+
+                    <strong
+                        id="system-status-label"
+                        class="fw-bold"
+                    >
+                        {{ latest_event.get_status_display }}
+                    </strong>:
+
+                    <span id="system-status-message">
+                        {{ latest_event.message }}
+                    </span>
+
+                {% else %}
+
+                    <span id="system-status-label">
+                        ✅ All systems online.
+                    </span>
+
+                    <span id="system-status-message">
+                        Observation in progress.
+                    </span>
+
+                {% endif %}
+
+            </span>
+
+        </div>
+
+    </div>
+
+
     <!-- Input Waveform -->
     <div class="col-12 col-md-6 col-lg-5">
-        <div class="border rounded p-3 bg-white d-flex align-items-center" style="min-height: 5rem;">
-            <form action="{% url 'submit_waveform' %}" method="POST" class="d-flex align-items-center w-100 gap-2">
+
+        <div
+            class="
+                border rounded p-3 bg-white
+                d-flex align-items-center
+            "
+            style="min-height: 5rem;"
+        >
+
+            <form
+                id="waveform-form"
+                action="{% url 'submit_waveform' %}"
+                method="POST"
+                class="
+                    d-flex align-items-center
+                    w-100 gap-2
+                "
+            >
+
                 {% csrf_token %}
-                <label class="mb-0 fw-bold" for="waveform" style="white-space:nowrap;">
-                    Input waveform here:  
+
+                <label
+                    class="mb-0 fw-bold"
+                    for="waveform"
+                    style="white-space: nowrap;"
+                >
+                    Input waveform here:
                 </label>
-                <select name="waveform" class="form-select" style="max-width: 180px;">
-                    <option value="W45" {% if current_waveform == "W45" %}selected{% endif %}>W45</option>
-                    <option value="W46" {% if current_waveform == "W46" %}selected{% endif %}>W46</option>
-                    <option value="W47" {% if current_waveform == "W47" %}selected{% endif %}>W47</option>
-                    <option value="W48" {% if current_waveform == "W48" %}selected{% endif %}>W48</option>
-                    <option value="W49" {% if current_waveform == "W49" %}selected{% endif %}>W49</option>
-                    <option value="W50" {% if current_waveform == "W50" %}selected{% endif %}>W50</option>
-                    <option value="W51" {% if current_waveform == "W51" %}selected{% endif %}>W51</option>
-                    <option value="W52" {% if current_waveform == "W52" %}selected{% endif %}>W52</option>
-                    <option value="W53" {% if current_waveform == "W53" %}selected{% endif %}>W53</option>
-                    <option value="W54" {% if current_waveform == "W54" %}selected{% endif %}>W54</option>
-                    <option value="W55" {% if current_waveform == "W55" %}selected{% endif %}>W55</option>
+
+                <select
+                    id="waveform"
+                    name="waveform"
+                    class="form-select"
+                    style="max-width: 180px;"
+                >
+
+                    <option value="W45"
+                        {% if current_waveform == "W45" %}selected{% endif %}
+                    >W45</option>
+
+                    <option value="W46"
+                        {% if current_waveform == "W46" %}selected{% endif %}
+                    >W46</option>
+
+                    <option value="W47"
+                        {% if current_waveform == "W47" %}selected{% endif %}
+                    >W47</option>
+
+                    <option value="W48"
+                        {% if current_waveform == "W48" %}selected{% endif %}
+                    >W48</option>
+
+                    <option value="W49"
+                        {% if current_waveform == "W49" %}selected{% endif %}
+                    >W49</option>
+
+                    <option value="W50"
+                        {% if current_waveform == "W50" %}selected{% endif %}
+                    >W50</option>
+
+                    <option value="W51"
+                        {% if current_waveform == "W51" %}selected{% endif %}
+                    >W51</option>
+
+                    <option value="W52"
+                        {% if current_waveform == "W52" %}selected{% endif %}
+                    >W52</option>
+
+                    <option value="W53"
+                        {% if current_waveform == "W53" %}selected{% endif %}
+                    >W53</option>
+
+                    <option value="W54"
+                        {% if current_waveform == "W54" %}selected{% endif %}
+                    >W54</option>
+
+                    <option value="W55"
+                        {% if current_waveform == "W55" %}selected{% endif %}
+                    >W55</option>
+
                 </select>
-                <button type="submit" class="btn btn-primary" id="waveform-submit-btn">Submit</button>
+
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                    id="waveform-submit-btn"
+                >
+                    Submit
+                </button>
+
             </form>
+
         </div>
+
+    </div>
+
+</div>
+
+
+<!-- ===================================================== -->
+<!-- GBT live state -->
+<!-- ===================================================== -->
+
+<div class="row justify-content-center g-3 mt-3 mb-4">
+
+    <!-- Left -->
+    <div class="col-12 col-md-6 col-lg-5">
+
+        <div
+            class="
+                border rounded p-3 mb-3
+                bg-white d-flex align-items-center
+            "
+            style="min-height: 5rem;"
+        >
+            <h5 class="fw-bold me-3 mb-0">
+                Target:
+            </h5>
+
+            <p
+                id="gbt-target"
+                class="fs-5 mb-0"
+            >
+                {{ gbt_event.target|default:"-" }}
+            </p>
+        </div>
+
+
+        <div
+            class="
+                border rounded p-3 mb-3
+                bg-white d-flex align-items-center
+            "
+            style="min-height: 5rem;"
+        >
+            <h5 class="fw-bold me-3 mb-0">
+                Object ID:
+            </h5>
+
+            <p
+                id="gbt-object-id"
+                class="fs-5 mb-0"
+            >
+                {{ gbt_event.object_id|default:"-" }}
+            </p>
+        </div>
+    </div>
+
+
+    <!-- Right -->
+    <div class="col-12 col-md-6 col-lg-5">
+
+        <div
+            class="
+                border rounded p-3 mb-3
+                bg-white d-flex align-items-center
+            "
+            style="min-height: 5rem;"
+        >
+            <h5 class="fw-bold me-3 mb-0">
+                Transmitted Waveform:
+            </h5>
+
+            <p
+                id="gbt-waveform"
+                class="fs-5 mb-0"
+            >
+                {{ gbt_event.tx_waveform|default:"-" }}
+            </p>
+        </div>
+
+
+        <div
+            class="
+                border rounded p-3 mb-3
+                bg-white d-flex align-items-center
+            "
+            style="min-height: 5rem;"
+        >
+            <h5 class="fw-bold me-3 mb-0">
+                Recorded Waveform:
+            </h5>
+
+            <p
+                id="gbt-recorded-waveform"
+                class="fs-5 mb-0"
+            >
+                {{ gbt_event.rec_waveform|default:"-" }}
+            </p>
+        </div>
+    </div>
+
+   <!-- Waveform requester -->
+    <div class="col-12 col-lg-10">
+        <p
+            id="waveform-requester-container"
+            class="
+                text-muted text-center mt-2
+                {% if not gbt_event.waveform_requester %}d-none{% endif %}
+            "
+        >
+            Waveform requested by:
+            <span id="waveform-requester">
+                {{ gbt_event.waveform_requester|default:"" }}
+            </span>
+        </p>
     </div>
 </div>
 
-<!-- Row 3: HTMX GBT Partial - HTMX: 1 second refresh -->
-<div id="home-gbt-partial" 
-     hx-get="{% url 'gbt_events' %}" 
-     hx-trigger="every 1s" 
-     hx-target="#home-gbt-partial"
-     class="w-100 mb-4">
-    {% include 'ngRadar_Website/partials/gbt_home_partial.html' %}
+<!-- ===================================================== -->
+<!-- Expedat Streaming Progress Bars -->
+<!-- ===================================================== -->
+
+<div
+    id="vlba-progress-container"
+    class="mt-4"
+>
+    <h5>
+        VLBA Streaming Progress
+    </h5>
+
+    <div id="vlba-progress-list">
+    </div>
 </div>
 
-<!-- Row 4: DSOC Partial - HTMX: 1 second refresh -->
-<div id="home-dsoc-partial" 
-     hx-get="{% url 'dsoc_events' %}" 
-     hx-trigger="every 5s" 
-     hx-target="#home-dsoc-partial"
-     class="w-100">
-    {% include 'ngRadar_Website/partials/dsoc_home_partial.html' %}
+
+<!-- ===================================================== -->
+<!-- DSOC / DDM -->
+<!-- ===================================================== -->
+
+<div
+    id="dsoc-container"
+    class="
+        mt-4 border rounded
+        pt-3 pb-3 bg-white
+        ps-3 pe-3 text-center mx-auto
+    "
+    style="max-width: 50rem;"
+>
+
+    <h5
+        id="dsoc-image-heading"
+        class="fw-bold"
+    >
+        {% if latest_image_event %}
+
+            DDM last updated at
+            {{ latest_image_event.event_time|date:"F d Y H:i:s" }}
+
+        {% else %}
+
+            Waiting for DDM to be created...
+
+        {% endif %}
+    </h5>
+
+    <p
+        id="dsoc-image-empty"
+        class="
+            text-muted mt-5
+            {% if latest_image_event %}d-none{% endif %}
+        "
+    >
+        No image available yet
+    </p>
+
+
+    <p
+        id="dsoc-message"
+        class="text-muted mt-3"
+    >
+        {{ dsoc_event.message|default:"" }}
+    </p>
+
+</div>
+
+<div
+    id="dsoc-image-table-container"
+    class = "mt-4 border rounded pt-3 pb-3 bg-white ps-3 pe-3 mx-auto"
+    style="max-width: 50rem;"
+>
+    <h5 class = "fw-bold text-center">
+         VLBA DDM Images
+    </h5>
+
+    <table class = "table">
+        <thead>
+            <tr>
+                <th> Station</th>
+                <th> Thumbnail</th>
+                <th> Link</th>
+            </tr>
+        </thead>
+        <tbody id="dsoc-image-table-body">
+            {% for event in latest_image_events %}
+                <tr id="ddm-row-{{event.rcvr_station}}">
+                    <td> {{ event.get_rcvr_station_display }} </td>
+                    <td>
+                        <img
+                            class="ddm-thumbnail"
+                            src="{% url 'serve_image' event.uuid %}"
+                            alt="DDM thumbnail"
+                            style="max-width: 100px;"
+                        >
+                    </td>
+                    <td>
+                        <a 
+                            class="ddm-link"
+                            href="{% url 'serve_image' event.uuid %}" 
+                            target="_blank"
+                            rel="noopener"
+                            >
+                            View Image
+                        </a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+
 </div>
 
 
+<!-- Reload when returning via browser back/forward cache -->
 <script>
-    window.addEventListener('pageshow', function(event){
-        if(event.persisted){
-            window.location.reload()
+    window.addEventListener(
+        "pageshow",
+        function (event) {
+            if (event.persisted) {
+                window.location.reload();
+            }
         }
-    });
+    );
 </script>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+<script
+    src="{% static 'ngRadar_Website/js/home_live_clock_script.js' %}"
+></script>
+
+<script
+    src="{% static 'ngRadar_Website/js/home_events.js' %}"
+></script>
+
+<script
+    src="{% static 'ngRadar_Website/js/home_ui.js' %}"
+></script>
 
 {% endblock %}

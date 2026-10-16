@@ -1,107 +1,242 @@
+import json
+import time
+import uuid
 from datetime import datetime, timezone
-import os, time
 from django.core.management.base import BaseCommand
-from confluent_kafka import Producer
-from confluent_kafka import Consumer
-from ngRadar_Website.enums import Stations
-from ngRadar_Website.models.models import uiEvent
-from ngRadar_Website.models.models import gbtEvent
-# from dotenv import find_dotenv
-from pathlib import Path
-from ngRadar_Website.utils import latency_calc, bootstrap, consume
 
+from ngRadar_Website.enums import (
+    Stations,
+    Status,
+    Message,
+)
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter # or HTTP
+from opentelemetry.sdk.trace.sampling import ALWAYS_ON
+from opentelemetry import trace, propagate
+from opentelemetry.trace import SpanKind, StatusCode
+from opentelemetry.trace.status import Status as TraceStatus
+from opentelemetry.context import attach, detach
+from opentelemetry.sdk.resources import Resource
 
-# payload that will be inserted in the gbtEvent db table
-payload = {
-    "object_id": None, 
-    "target": None, 
-    "tx_waveform": None, 
-    "rec_waveform": None, 
-    "event_time": None, 
-    "latency_ms": None,
-}
+from ngRadar_Website.utils import (
+    bootstrap,
+    consume,
+    latency_calc,
+    send_kafka_message,
+)
+"""
+GBT Simulator
 
-def set_payload_dict(waveform, event_time):
-    payload["object_id"] = '30104'
-    payload["target"] = 'Moretus'
-    payload["tx_waveform"] = waveform
-    payload["rec_waveform"] = waveform
-    payload["event_time"] = datetime.now(timezone.utc)
-    payload["latency_ms"] = latency_calc(event_time, Stations.GBT)
+This simulator:
 
-    return payload
+- Consumes workflow events from Kafka.
+- Turns the transmitter OFF and then ON with the requested waveform.
+- Sends VLBA state/workflow events via Kafka.
 
+This simulator does NOT write directly to the database (the ObservatoryEvent table).
 
-def generate_payload(ui_event_uuid):
-    ui_event = uiEvent.objects.get(uuid=ui_event_uuid)
+The db_consumer is solely responsible for persisting
+Kafka events to ObservatoryEvent.
+"""
 
-    payload = set_payload_dict(ui_event.selected_waveform, ui_event.event_time)
+station = Stations.GBT
+tracer = trace.get_tracer(f"{Stations(station).name.lower()}.kafka.consumer")
 
-    return payload
+def process_msg(
+    msg,
+    producer_topic,
+    producer_config,
+):
+    carrier = {}
+    
+    for name, value in (msg.headers() or []):
+        if value is not None:
+            carrier[name] = value.decode("utf-8")
 
+    parent_context = propagate.extract(carrier)
 
-def turn_off_transmitter():
-    gbtEvent.objects.create(
-        **
-        {
-            "object_id": '30104', 
-            "target": 'Moretus', 
-            "tx_waveform": 'Tx_OFF', 
-            "rec_waveform": 'Tx_OFF', 
-            "event_time": datetime.now(timezone.utc), 
-            "latency_ms": 0,
-        }
+    span = tracer.start_span(
+        f"process message from {msg.topic()}",
+        context=parent_context,
+        kind=SpanKind.CONSUMER,
+        attributes={
+            "messaging.system": "kafka",
+            "messaging.destination.name": msg.topic(),
+            "messaging.operation.name": "process",
+            "messaging.kafka.partition": msg.partition(),
+            "messaging.kafka.offset": msg.offset(),
+            "messaging.consumer.group.name": "gbt-consumer-group",
+        },
     )
-    time.sleep(5)
 
+    # Make this span the active parent in Python's execution context
+    ctx = trace.set_span_in_context(span)
+    token = attach(ctx)
 
-def publish_to_db(payload):
-    gbt_event = gbtEvent.objects.create(**payload)
+    # Performing our business logic within the span
+    try:
+            
+        incoming_key = msg.key().decode("utf-8")
 
-    return gbt_event.uuid
+        # GBT only reacts to waveform requests
+        # submitted by the UI.
+        if (incoming_key!= str(Message.UI_EVENT.value)):
+            return True
 
+        span.set_attribute("ngradar.message.name", "UI_EVENT")
 
-def produce(topic, config, key, value):
-    # creates a new producer instance
-    producer = Producer(config)
+        payload = json.loads(msg.value().decode("utf-8"))
 
-    # producing a message to the specified topic 
-    producer.produce(topic, key=key, value=value)
-    print(f"Produced message to topic {topic} with key {key}.")
+        waveform = payload["tx_waveform"]
+        waveform_requester = payload["waveform_requester"]
 
-    # send any outstanding or buffered messages to the Kafka broker
-    producer.flush()
+        ui_event_time = (
+            datetime.fromisoformat(
+                payload["event_time"]
+            )
+        )
 
+        print(
+            "GBT received waveform request: "
+            f"{waveform}"
+        )
 
-def process_msg(msg, producer_topic, producer_config):
-    ui_uuid = msg.key().decode("utf-8")  # this is the uuid of the ui_event
+        # One ID correlates both the OFF and ON
+        # events with the same observation.
+        gbt_uuid = uuid.uuid4()
 
-    # turn off the transmitter for 5 seconds
-    turn_off_transmitter()
+        span.set_attribute("ngradar.gbt_uuid", str(gbt_uuid))
 
-    # fill in the values to be published to the db
-    payload = generate_payload(ui_uuid)
+        # -------------------------------------------------
+        # 1. Turn transmitter OFF
+        # -------------------------------------------------
+        with tracer.start_as_current_span(
+                "GBT transmitter OFF",
+                attributes={
+                    "ngradar.gbt_uuid": str(gbt_uuid),
+                    "ngradar.transmitter.state": "OFF",
+                },
+        ):
+            print("GBT transmitter OFF")
+            send_kafka_message(
+                message_type=(Message.STATUS_UPDATE),
+                producer_topic=producer_topic,
+                producer_config=producer_config,
+                waveform_requester=waveform_requester,
+                station=Stations.GBT,
+                gbt_uuid=gbt_uuid,
+                object_id="30104",
+                target="Moretus",
+                tx_waveform="TX_OFF",
+                rec_waveform="TX_OFF",
+                status=None,
+                xmit_station=Stations.GBT,
+                rcvr_station=None,
+                latency_ms=latency_calc(
+                    ui_event_time,
+                    Stations.GBT,
+                ),
+                message=(
+                    "GBT transmitter turned OFF "
+                    "for waveform change."
+                ),
+            )
 
-    # publish new transmission to the db
-    gbt_uuid = publish_to_db(payload)
+        # -------------------------------------------------
+        # 2. Remain OFF for five seconds
+        # -------------------------------------------------
 
-    key, value = f"{gbt_uuid}", "GBT transmitting"
+        #time.sleep(5)
 
-    # produce this new message, lets DSOC know to produce image(s)
-    produce(producer_topic, producer_config, key, value)
+        # -------------------------------------------------
+        # 3. Turn transmitter ON with new waveform
+        # -------------------------------------------------
+        with tracer.start_as_current_span(
+                "GBT transmitter ON",
+                attributes={
+                    "ngradar.gbt_uuid": str(gbt_uuid),
+                    "ngradar.transmitter.state": "ON",
+                    "ngradar.waveform": str(waveform),
+                },
+        ):
+            gbt_event_time = datetime.now(timezone.utc)
+            print(f"GBT transmitter ON with waveform {waveform}")
+            event_uuid = send_kafka_message(
+                message_type=(Message.GBT_TX),
+                producer_topic=producer_topic,
+                producer_config=producer_config,
+                waveform_requester=waveform_requester,
+                station=Stations.GBT,
+                gbt_uuid=gbt_uuid,
+                gbt_event_time=(gbt_event_time.isoformat()),
+                object_id="30104",
+                target="Moretus",
+                tx_waveform=waveform,
+                rec_waveform=waveform,
+                status=None,
+                xmit_station=Stations.GBT,
+                rcvr_station=None,
+                latency_ms=latency_calc(
+                    ui_event_time,
+                    Stations.GBT,
+                ),
+                message=(
+                    "GBT transmitting waveform "
+                    f"{waveform}."
+                ),
+            )
+
+        print(
+            "GBT published TX event "
+            f"{event_uuid}"
+        )
+
+        return True
+
+    # Catch any unexpected exceptions and record them in the span
+    except Exception as exc:
+        span.record_exception(exc)
+        span.set_status(TraceStatus(StatusCode.ERROR, str(exc)))
+        # span.end() # Safely closing the span in case it wasn't already closed in the business logic above
+        raise
+
+    finally:
+        detach(token) # Detach the context to avoid leaking it to other spans
+        span.end()
 
 
 class Command(BaseCommand):
     help = "Runs the GBT simulator"
 
-    def handle(self, *args, **options):
+    def handle(
+        self,
+        *args,
+        **options,
+    ):
         print("Starting GBT simulator")
 
-        producer_topic, producer_config, consumer_topic, consumer_config = bootstrap(Stations.GBT)
+        # provider = TracerProvider(sampler=ALWAYS_ON)
+        provider = TracerProvider(
+            sampler=ALWAYS_ON,
+            resource=Resource.create({"service.name": "gbt"}),
+        )
+        processor = BatchSpanProcessor(OTLPSpanExporter(endpoint="http://otel-collector:4317")) # endpoint will not work on droplets - configuring that later
+        provider.add_span_processor(processor)
+        trace.set_tracer_provider(provider)
 
-        # generate a dummy data payload, publish this data to the db, produce a message with this payload, then start consuming
-        payload = set_payload_dict('W48', -1)
-        gbt_uuid = publish_to_db(payload)
-        key, value = f"{gbt_uuid}", "GBT transmitting"
-        produce(producer_topic, producer_config, key, value)
-        consume(consumer_topic, consumer_config, process_msg, producer_topic=producer_topic, producer_config=producer_config)
+        (
+            producer_topic,
+            producer_config,
+            consumer_topic,
+            consumer_config,
+        ) = bootstrap(Stations.GBT)
+
+        consume(
+            consumer_topic,
+            consumer_config,
+            process_msg,
+            producer_topic=producer_topic,
+            producer_config=producer_config,
+            manual_commit=True,
+        )

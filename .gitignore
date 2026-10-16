@@ -7,3 +7,11 @@ __pycache__/
 venv/
 .venv/
 env/
+*.large
+mock_assets/progress.json
+.coverage
+letsencrypt
+k6-results
+# JetBrains IDE files
+.idea/
+expedat/ 

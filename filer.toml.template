@@ -1,8 +1,14 @@
-[postgres]
+[postgres2]
 enabled = true
+
 hostname = "${WEED_DB_HOST}"
 port = ${WEED_DB_PORT}
 username = "${WEED_DB_USER}"
 password = "${WEED_DB_PASSWORD}"
 database = "${WEED_DB_NAME}"
+schema = "public"
 sslmode = "${WEED_DB_SSLMODE}"
+
+connection_max_idle = 10
+connection_max_open = 50
+connection_max_lifetime_seconds = 300

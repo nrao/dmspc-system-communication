@@ -1,0 +1,205 @@
+# This is a template you can use to build your .env file.
+# this .env contains local dev vars AND DigitalOcean droplet vars.
+# comment/uncomment env vars depending on which environment you are deploying your services.
+
+
+#=====================================
+# LOCAL DEV ENV VARIABLES
+#=====================================
+# To spin all ~34 containers up locally on your machine, you need the below env variables:
+
+# generate your own django secret key for local development using the following command in your terminal (make sure you have python installed):
+# python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
+
+# Django Settings:
+DJANGO_SECRET_KEY="your-django-secret-key"      # you must provide
+DJANGO_DEBUG=True
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,ngradar-website-network
+DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost:8000
+DSOC_VOLUME_SIZE=5 #GB can change to make storage at DSOC larger/smaller
+# seaweedfs S3 gateway:
+WEED_S3_ACCESS_KEY=dev_user
+WEED_S3_SECRET_KEY=dev_password
+WEED_S3_BUCKET=ddm-images
+WEED_S3_ENDPOINT=http://seaweedfs:8333 # saves the image using Docker DNS
+WEED_S3_PUBLIC_ENDPOINT=http://images.localhost
+SEAWEEDFS_CERTRESOLVER=traefik.http.routers.seaweedfs.tls.certresolver=le
+# LOCAL-DB vars:
+DATABASE_URL=postgresql://ngradar_website:ngradar_website@postgres:5432/localdev?sslmode=disable
+POSTGRES_USER=ngradar_website
+POSTGRES_PASSWORD=ngradar_website
+POSTGRES_DB=localdev
+# kafka vars:
+KAFKA_BOOTSTRAP_SERVERS=kafka-node-1:19092,kafka-node-2:29092,kafka-node-3:39092
+KAFKA_CONTROLLER_QUOROM_VOTERS=1@kafka-node-1:19093,2@kafka-node-2:29093,3@kafka-node-3:39093
+# traefik vars:
+WEBSITE_DOMAIN=localhost
+WEBSITE_DOMAIN_NAME=localhost
+PUBLIC_BIND_IP=127.0.0.1
+CERTRESOLVER=ngradar.environment=local
+DASHBOARD_CERTRESOLVER=ngradar.environment=local
+# etransfer vars:
+ETD_HOST=etr_daemon
+ETD_COMMAND_PORT=4004
+# grafana
+GRAFANA_USER=your-grafana-password
+GRAFANA_ADMIN_PASSWORD=your-grafana-password
+# ./control.sh command env vars (need to be set, but not needed for local ./control.sh commands)
+# if not using DO Droplets at all in the future, remove the droplets-up/droplets-down commands in ./control.sh script
+# which need the below IP addresses:
+DSOC_DROPLET_IP=DO-DSOC-DROPLET-IP-ADDRESS          # you must provide
+VLBA_1_DROPLET_IP=DO-VLBA-1-DROPLET-IP-ADDRESS      # you must provide
+VLBA_2_DROPLET_IP=DO-VLBA-2-DROPLET-IP-ADDRESS      # you must provide
+VLBA_3_DROPLET_IP=DO-VLBA-3-DROPLET-IP-ADDRESS      # you must provide
+GBT_DROPLET_IP=DO-GBT-DROPLET-IP-ADDRESS            # you must provide
+REMOTE_REPO=name-of-your-remote-github-repo         # you must provide
+# k6 testing vars:
+K6_USERNAME=k6-testuser
+K6_PASSWORD=k6-password
+K6_IMAGE_ID=replace-with-an-imagekey-id-from-your-db
+#expedat vars:
+SVD_PASSWORD=your_mac_password                     # you must provide
+SVD_IP=expedat_server
+SVD_USER=your_mac_username                         # you must provide
+RECIPIENT_DIR=/Users/your_mac_username/DMSPC_GitHub/Expedat_Resources/      # you must provide
+MVD_LOC=/Users/your_mac_username/DMSPC_GitHub/Expedat_Resources/            # you must provide
+MVD_FILEPATH=/Users/your_mac_username/Documents/ngRadar/Debbie.png          # you must provide
+EXPEDAT_MODE=stream                                # can use 'stream' or 'transfer' modes if desired
+EXPEDAT_STREAM_MB=100
+
+
+
+#=====================================
+# DSOC DROPLET ENV VARIABLES
+#=====================================
+# When deploying the DSOC services on the DSOC DO Droplet, the following .env vars were required:
+
+# Django settings:
+# DJANGO_ALLOWED_HOSTS=your-website-domain-name,127.0.0.1        # you must provide
+# DJANGO_CSRF_TRUSTED_ORIGINS=https://your-website-domain-name   # you must provide
+# DJANGO_SECRET_KEY="your-django-secret-key"                     # you must provide
+# DJANGO_DEBUG=False
+# DSOC_VOLUME_SIZE=5
+# seaweedfs:
+# WEED_S3_ACCESS_KEY=dev_user       # you must provide
+# WEED_S3_SECRET_KEY=dev_password   # you must provide
+# WEED_S3_BUCKET=ddm-images
+# WEED_S3_ENDPOINT=http://seaweedfs:8333
+# WEED_S3_PUBLIC_ENDPOINT=https://images.your-website-domain
+# SEAWEEDFS_CERTRESOLVER=traefik.http.routers.seaweedfs.tls.certresolver=le
+# DB vars:
+# DATABASE_URL=postgresql://your-db-username:your-db-password@dsoc-droplet-ip-address/localdev?sslmode=disable # you must provide
+# POSTGRES_USER=your-db-username        # you must provide
+# POSTGRES_PASSWORD=your-db-password    # you must provide
+# POSTGRES_DB=localdev                  # you must provide
+# WEBSITE_DOMAIN_NAME=your-website-domain-name   # you must provide
+# traefik vars using droplet public IPs:
+# HTTP_ENTRYPOINT=websecure
+# CERTRESOLVER=traefik.http.routers.ngradar_website.tls.certresolver=le
+# TLS=true
+# DASHBOARD_CERTRESOLVER=traefik.http.routers.dashboard.tls.certresolver=le
+# PUBLIC_BIND_IP=0.0.0.0
+# kafka:
+# KAFKA_EXTERNAL_HOST=dsoc-droplet-ip-address   # you must provide
+# KAFKA_BOOTSTRAP_SERVERS=dsoc-droplet-ip-address:9091,gbt-droplet-ip-address:9092,vlba-1-doplet-ip-address:9093    # you must provide
+# KAFKA_CONTROLLER_QUOROM_VOTERS=1@dsoc-droplet-ip-address:19093,2@gbt-droplet-ip-address:29093,3@vlba-1-doplet-ip-address:39093    # you must provide
+# if on etransfer branch, using etransfer for data transport:
+# ETD_HOST=dsoc-droplet-ip-address              # you must provide
+# ETD_COMMAND_PORT=4004
+# DSOC_DROPLET_IP=dsoc-droplet-ip-address       # you must provide
+# VLBA_1_DROPLET_IP=vlba-1-doplet-ip-address    # you must provide
+# VLBA_2_DROPLET_IP=vlba-2-doplet-ip-address    # you must provide
+# VLBA_3_DROPLET_IP=vlba-3-doplet-ip-address    # you must provide
+# GBT_DROPLET_IP=gbt-droplet-ip-address         # you must provide
+# if on dev branch, using expedat for data transport:
+# SVD_PASSWORD=your_mac_password                  # you must provide
+# SVD_IP=dsoc-droplet-ip-address                  # you must provide
+# SVD_USER=your_mac_username                      # you must provide
+# EXPEDAT_MODE=stream                             # can use 'stream' or 'transfer' modes if desired
+# EXPEDAT_STREAM_MB=10
+# REMOTE_REPO=name-of-your-remote-github-repo         # you must provide
+# k6 vars:
+# K6_USERNAME=k6-testuser
+# K6_PASSWORD=k6-password
+# K6_IMAGE_ID=replace-with-an-imagekey-id-from-your-db # you must provide
+# grafana:
+# GRAFANA_USER=your-grafana-password
+# GRAFANA_ADMIN_PASSWORD=your-grafana-password
+
+
+
+#=====================================
+# VLBA DROPLET ENV VARIABLES
+#=====================================
+# When deploying the VLBA related services on the VLBA DO Droplet, the following .env vars were required:
+# Note: we had more than 1 VLBA Droplet, but we used this template for all, just using the VLBA droplet ip
+# address where needed. This is for the VLBA-1 DO Droplet. You would use the VLBA-2 Droplet IP address for the
+# .env on the VLBA-2 Droplet and so on and so forth for as many "VLBA sites" you have deployed on DO.
+
+# Django Settings:
+# DJANGO_SECRET_KEY="your-django-secret-key"                        # you must provide
+# DJANGO_DEBUG=False
+# DJANGO_ALLOWED_HOSTS=vlba-1-doplet-ip-address                     # you must provide
+# DJANGO_CSRF_TRUSTED_ORIGINS=http://vlba-1-doplet-ip-address       # you must provide
+# DATABASE_URL=postgresql://your-db-username:your-db-password@dsoc-droplet-ip-address/localdev?sslmode=disable # you must provide
+# traefik:
+# WEBSITE_DOMAIN=vlba-1-doplet-ip-address                           # you must provide
+# PUBLIC_BIND_IP=0.0.0.0
+# kafka:
+# KAFKA_EXTERNAL_HOST=vlba-1-doplet-ip-address                      # you must provide
+# KAFKA_BOOTSTRAP_SERVERS=dsoc-droplet-ip-address:9091,gbt-droplet-ip-address:9092,vlba-1-doplet-ip-address:9093        # you must provide
+# KAFKA_CONTROLLER_QUOROM_VOTERS=1@dsoc-droplet-ip-address:19093,2@gbt-droplet-ip-address:29093,3@vlba-1-doplet-ip-address:39093    # you must provide
+# if on etransfer branch, using etransfer for data transport:
+# ETD_HOST=dsoc-droplet-ip-address
+# ETD_COMMAND_PORT=4004
+# DSOC_DROPLET_IP=dsoc-droplet-ip-address       # you must provide
+# VLBA_1_DROPLET_IP=vlba-1-doplet-ip-address    # you must provide
+# VLBA_2_DROPLET_IP=vlba-2-doplet-ip-address    # you must provide
+# VLBA_3_DROPLET_IP=vlba-3-doplet-ip-address    # you must provide
+# GBT_DROPLET_IP=gbt-droplet-ip-address         # you must provide
+# REMOTE_REPO=name-of-your-remote-github-repo   # you must provide
+# if on dev branch, using expedat for data transport:
+# SVD_PASSWORD=your_mac_password                  # you must provide
+# SVD_IP=dsoc-droplet-ip-address                  # you must provide
+# SVD_USER=your_mac_username                      # you must provide
+# EXPEDAT_MODE=stream                             # can use 'stream' or 'transfer' modes if desired
+# EXPEDAT_STREAM_MB=10
+
+
+#=====================================
+# GBT DROPLET ENV VARIABLES
+#=====================================
+# When deploying the GBT related services on the GBT DO Droplet, the following .env vars were required:
+
+# Django settings:
+# DJANGO_SECRET_KEY="your-django-secret-key"    # you must provide
+# DJANGO_DEBUG=False
+# DJANGO_ALLOWED_HOSTS=gbt-droplet-ip-address   # you must provide
+# DJANGO_CSRF_TRUSTED_ORIGINS=http://gbt-droplet-ip-address     # you must provide
+# DB VARS:
+# DATABASE_URL=postgresql://your-db-username:your-db-password@dsoc-droplet-ip-address/localdev?sslmode=disable # you must provide
+# POSTGRES_USER=your-db-username                # you must provide
+# POSTGRES_PASSWORD=your-db-password            # you must provide
+# traefik vars using droplet public IPs:
+# WEBSITE_DOMAIN=dsoc-droplet-ip-address        # you must provide
+# PUBLIC_BIND_IP=0.0.0.0
+# kafka:
+# KAFKA_EXTERNAL_HOST=gbt-droplet-ip-address    # you must provide
+# KAFKA_BOOTSTRAP_SERVERS=dsoc-droplet-ip-address:9091,gbt-droplet-ip-address:9092,vlba-1-doplet-ip-address:9093        # you must provide
+# KAFKA_CONTROLLER_QUOROM_VOTERS=1@dsoc-droplet-ip-address:19093,2@gbt-droplet-ip-address:29093,3@vlba-1-doplet-ip-address:39093        # you must provide
+# if on etransfer branch, using etransfer for data transport:
+# ETD_HOST=dsoc-droplet-ip-address
+# ETD_COMMAND_PORT=4004
+# DSOC_DROPLET_IP=dsoc-droplet-ip-address       # you must provide
+# VLBA_1_DROPLET_IP=vlba-1-doplet-ip-address    # you must provide
+# VLBA_2_DROPLET_IP=vlba-2-doplet-ip-address    # you must provide
+# VLBA_3_DROPLET_IP=vlba-3-doplet-ip-address    # you must provide
+# GBT_DROPLET_IP=gbt-droplet-ip-address         # you must provide
+# REMOTE_REPO=name-of-your-remote-github-repo   # you must provide
+# if on dev branch, using expedat for data transport:
+# SVD_PASSWORD=your_mac_password                  # you must provide
+# SVD_IP=dsoc-droplet-ip-address                  # you must provide
+# SVD_USER=your_mac_username                      # you must provide
+# EXPEDAT_MODE=stream                             # can use 'stream' or 'transfer' modes if desired
+# EXPEDAT_STREAM_MB=10
+
