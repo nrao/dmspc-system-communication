@@ -13,3 +13,52 @@ class Stations(models.IntegerChoices):
     BR  = 98, "Brewster (25-m, VLBA)"
     MK  = 99, "Mauna Kea (25-m, VLBA)"
     DSOC = 100, "DSOC (Domenici Socorro Operations Center)"
+    UI = 101, "User Interface"
+    PTW = 102, "Progress Tracking Worker"
+
+
+class Status(models.IntegerChoices):
+    READY = 1, "Ready"
+    QUEUED = 2, "Queued"                # Won't worry about this status for now, but it would be used if we had a queue of incoming e-transfers to process
+    BLOCKED = 3, "Blocked"              # Won't worry about this status for now, I feel like it would be closely tied to the QUEUED status.
+    TRANSFERRING = 4, "Transferring"    # Used when the e-transfer is actively in progress. 
+    VERIFYING = 5, "Verifying"          # Will verify the number of bytes received at DSOC matches the expected number of bytes being sent from VLBA. 
+    TRANSFERRED = 6, "Transferred"      # This status would be used when the e-transfer has completed from etc -> etd successfully, will be the status sent by kafka to DSOC to begin DSOC workflow.
+    VERIFIED = 7, "Verified"            # This status would be used when the e-transfer has completed successfully and the data has been verified, processed, and stored appropriately.
+    FAILED = 8, "Failed"        
+    COMPLETED = 9, "Completed"          # This status would be used when the e-transfer has completed successfully and the data has been verified, processed, and stored appropriately.
+    POLLING = 10, "Polling SeaweedFS"    # Used during failure testing for transparency
+    RETRYING = 11, "Retrying storage check" # Used the first time DSOC has to retry a storage check
+
+
+class Message(models.IntegerChoices):
+    VLBA_READY = 1, "VLBA is ready to transfer data."
+    VLBA_REQUEST_STORAGE = 2, "VLBA requests DSOC storage check."
+    VLBA_TRANSFERRING = 3, "VLBA notifies DSOC that etransfer has started."
+    VLBA_DELETE = 4, "DSOC gives VLBA green light to delete raw data."
+    VLBA_FAILED = 5, "VLBA notifies DSOC that etransfer has failed."
+    DSOC_RESPOND_STORAGE = 6, "DSOC sends result from storage check."
+    GBT_TX = 7, "GBT is transmitting."
+    UI_EVENT = 8, "Submit Waveform from UI."
+    DB_COMMITTED = 9, "Database consumer committed event."
+    STATUS_UPDATE = 10, "Domain status update with no workflow action."
+        # STATUS_UPDATE is used for UI events that don't require any workflow action, but are still important to log in the database for historical purposes.
+        # For example, if the UI changes the status of a station to "Blocked" or "Ready", we want to log that event in the database even though it doesn't trigger any workflow actions.
+        # Also, these:
+        # status=Status.TRANSFERRED
+        # status=Status.VERIFYING
+        # status=Status.FAILED
+    PROGRESS_COMPLETE = 11, "Progress complete for an e-transfer."
+    PROGRESS_UPDATE = 12, "Progress update for an e-transfer."
+
+
+
+class UIEvent:
+    STATUS_CHANGED = "status_changed"
+    GBT_CHANGED = "gbt_changed"
+    VLBA_CHANGED = "vlba_changed"
+    DSOC_CHANGED = "dsoc_changed"
+    PROGRESS_CHANGED = "progress_changed"
+    TRANSFER_CHANGED = "transfer_changed"
+    LATENCY_CHANGED = "latency_changed"
+    IMAGE_CHANGED = "image_changed"

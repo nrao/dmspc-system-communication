@@ -1,42 +1,117 @@
 {% extends 'ngRadar_Website/base.html' %}
+{% load static %}
 
-<!-- Don't need to load static since it is in the base-->
+{% block title %}
+    History Events Table
+{% endblock %}
 
-{% block title %}History Events Table{% endblock %}
 
 {% block content %}
 
-<!-- Style Sheets and HTMX were previously linked here but this is not necessary since we include the "extends base" statement-->
+<div
+    class="dashboard-wrapper d-flex flex-column"
+    data-color-mode="SDS-light"
+>
 
-<div class="dashboard-wrapper d-flex flex-column min-vh-100" data-color-mode="SDS-light">
-       
-</header>
-    <!-- The following Script prevents display of a webpage from browser cache. This needs to be in the html head to work correctly -->
-    <!-- This was added specifically to fix the issue with Safari -->
-    <script>
-    window.addEventListener('pageshow', function (event) {
-      if (event.persisted) {
-        window.location.reload();
-      }
-    });
-    </script>
+    <!-- ================================================= -->
+    <!-- Persisted ObservatoryEvent history -->
+    <!-- ================================================= -->
+
     <main class="flex-grow-0 container-fluid px-4 pt-4 pb-10">
-        
-        <!-- Polls the Django views every 3 seconds to refresh partial -->
-        <div id="dashboard-content" 
-             hx-get="{% url 'event_table_update' %}" 
-             hx-trigger="every 3s" 
-             hx-target="#dashboard-content"
-             class="w-100">
+
+        <!-- Add a button which allows user to select the number of messages to display -->
+        <form method="post" action="{% url 'dashboard_home' %}">
+            {% csrf_token %}
+            <div class="mb-3 p-3" style="border: 3px solid #000; display: flex; align-items: center; gap: 12px; width: fit-content;">
+                <label for="message-number-to-display" class="form-label mb-0" style="white-space: nowrap;">
+                    Select the Number of Messages to Display
+                </label>
+                <select id="message-number-to-display" name="message_number" class="form-select text-center"
+                        style="width: 80px; height: 32px; background-color: white; border: 2px solid #2b2b2b; text-align: center; text-align-last: center; font-weight: bold; padding-top: 1px; padding-bottom: 0;"
+                        onchange="this.form.submit()">
+                    <option value="10" {% if selected_number == 10 %}selected{% endif %}>10</option>
+                    <option value="25" {% if selected_number == 25 %}selected{% endif %}>25</option>
+                    <option value="50" {% if selected_number == 50 %}selected{% endif %}>50</option>
+                    <option value="75" {% if selected_number == 75 %}selected{% endif %}>75</option>
+                </select>
+            </div>
+        </form>
+
+        <div
+            id="dashboard-content"
+            class="w-100"
+        >
             {% include 'ngRadar_Website/partials/dashboard_updates.html' %}
         </div>
 
     </main>
 
-    <div class="Chart_padding" style="padding-top: 30px;"></div>
-        {% include 'ngRadar_Website/partials/latency_graph.html' %}
-    </div>
 
+    <!-- ================================================= -->
+    <!-- Latency graph -->
+    <!-- ================================================= -->
+
+    <div
+        class="Chart_padding"
+        style="padding-top: 30px;"
+    ></div>
+
+    {% include 'ngRadar_Website/partials/latency_graph.html' %}
 
 </div>
+
+
+<script>
+    window.addEventListener(
+        "pageshow",
+        function (event) {
+            if (event.persisted) {
+                window.location.reload();
+            }
+        }
+    );
+</script>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+<script
+    src="https://cdn.jsdelivr.net/npm/chart.js"
+></script>
+
+<script
+    src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"
+></script>
+
+<script>
+    window.LATENCY_DATA_URL =
+        "{% url 'latency_data' %}";
+</script>
+
+<script>
+    document.body.addEventListener(
+        "observatoryEventCreated",
+        () => {
+            htmx.ajax(
+                "GET",
+                "{% url 'event_table_update' %}",
+                {
+                    target: "#dashboard-content",
+                    swap: "innerHTML"
+                }
+            );
+        }
+    );
+</script>
+
+<script
+    src="{% static 'ngRadar_Website/js/latency_chart.js' %}"
+></script>
+
+<script
+    src="{% static 'ngRadar_Website/js/history_events.js' %}"
+></script>
+
 {% endblock %}

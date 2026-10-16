@@ -1,0 +1,18 @@
+version: 3
+
+agent:
+  authtoken: ${NGROK_AUTHTOKEN}
+
+version: 3
+
+endpoints:
+  - name: seaweedfs
+    url: https://nape-cage-those.ngrok-free.dev
+    upstream:
+      url: http://seaweedfs:8333
+
+  - name: kafka
+    url: tcp://7.tcp.ngrok.io:26729
+    upstream:
+      url: tcp://kafka-broker:9094
+

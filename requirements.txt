@@ -3,7 +3,9 @@ argon2-cffi-bindings==25.1.0
 asgiref==3.11.1
 cffi==2.0.0
 dj-database-url==3.1.2
-Django
+Django>=5.2,<5.3
+uvicorn[standard]
+django-prometheus
 django-login-required-middleware==0.9.0
 django-unfold
 pillow==12.2.0
@@ -21,3 +23,9 @@ numpy
 pytest
 pytest-django
 pytest-cov
+pytest-asyncio
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-exporter-otlp
+pandas
+opentelemetry-instrumentation-openai
